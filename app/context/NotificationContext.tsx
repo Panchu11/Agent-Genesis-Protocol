@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
-import { Notification, NotificationProps } from '@/app/components/common/Notification';
+import { Notification, NotificationProps } from '../components/common/Notification';
 
 type NotificationWithoutOnClose = Omit<NotificationProps, 'onClose'>;
 
