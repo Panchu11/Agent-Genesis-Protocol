@@ -10,9 +10,10 @@ import { Button } from '../common/Button';
 const navigation = [
   { name: 'Home', href: '/' },
   { name: 'Agent Forge', href: '/agent-forge' },
+  { name: 'Marketplace', href: '/marketplace' },
+  { name: 'Evolution Lab', href: '/evolution-lab' },
   { name: 'AGP Feed', href: '/feed' },
   { name: 'Mind Gardens', href: '/mind-gardens' },
-  { name: 'Evolution Lab', href: '/evolution-lab' },
   { name: 'Chat', href: '/chat' },
 ];
 

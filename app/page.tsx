@@ -3,8 +3,8 @@
 import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Button } from './components/common/Button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './components/common/Card';
+import { Button } from '@/app/components/common/Button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/app/components/common/Card';
 
 export default function HomePage() {
   return (
@@ -107,18 +107,20 @@ export default function HomePage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>🎤 Agent Broadcasts</CardTitle>
+              <CardTitle>🛒 Agent Marketplace</CardTitle>
               <CardDescription>
-                Autonomous content creation
+                Discover and share agents
               </CardDescription>
             </CardHeader>
             <CardContent>
               <p className="text-gray-600">
-                Enjoy "podcasts", Q&A threads, and live sessions autonomously created and run by your agents.
+                Browse, acquire, and publish agents in the community marketplace to expand your collection.
               </p>
             </CardContent>
             <CardFooter>
-              <Button variant="outline" className="w-full" disabled>Coming Soon</Button>
+              <Link href="/marketplace" className="w-full">
+                <Button variant="outline" className="w-full">Explore</Button>
+              </Link>
             </CardFooter>
           </Card>
 
