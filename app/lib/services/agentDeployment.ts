@@ -32,6 +32,15 @@ export interface DeploymentConfiguration {
     maxCost?: number;
     allowedActions?: string[];
   };
+  scaling?: {
+    min?: number; // minimum number of instances
+    max?: number; // maximum number of instances
+    target?: number; // target number of instances
+    autoScaling?: boolean; // whether auto-scaling is enabled
+    metric?: 'cpu' | 'memory' | 'requests'; // metric to use for auto-scaling
+    threshold?: number; // threshold for auto-scaling
+    cooldown?: number; // cooldown period in seconds
+  };
 }
 
 export interface DeploymentStatus {
@@ -434,6 +443,9 @@ export async function updateDeploymentMetrics(
     errors?: number;
     latency?: number;
     cost?: number;
+    instances?: number;
+    cpu_usage?: number;
+    memory_usage?: number;
   }
 ): Promise<boolean> {
   try {
@@ -442,7 +454,7 @@ export async function updateDeploymentMetrics(
     // Get current metrics
     const { data, error: getError } = await supabase
       .from('agent_deployments')
-      .select('metrics')
+      .select('metrics, configuration')
       .eq('id', deploymentId)
       .single();
 
@@ -464,9 +476,216 @@ export async function updateDeploymentMetrics(
       throw updateError;
     }
 
+    // Check if auto-scaling is enabled
+    const configuration = data?.configuration;
+    const scaling = configuration?.scaling;
+
+    if (scaling?.autoScaling && metrics) {
+      // Evaluate auto-scaling rules
+      await evaluateAutoScaling(deploymentId, updatedMetrics, scaling);
+    }
+
     return true;
   } catch (error) {
     console.error('Error updating deployment metrics:', error);
+    return false;
+  }
+}
+
+/**
+ * Evaluate auto-scaling rules for a deployment
+ *
+ * @param deploymentId The ID of the deployment
+ * @param metrics The current metrics
+ * @param scaling The scaling configuration
+ * @returns Whether the scaling was successful
+ */
+async function evaluateAutoScaling(
+  deploymentId: string,
+  metrics: Record<string, any>,
+  scaling: {
+    min?: number;
+    max?: number;
+    target?: number;
+    autoScaling?: boolean;
+    metric?: 'cpu' | 'memory' | 'requests';
+    threshold?: number;
+    cooldown?: number;
+  }
+): Promise<boolean> {
+  try {
+    // Get the current number of instances
+    const currentInstances = metrics.instances || 1;
+
+    // Get the metric value
+    let metricValue: number | undefined;
+
+    switch (scaling.metric) {
+      case 'cpu':
+        metricValue = metrics.cpu_usage;
+        break;
+      case 'memory':
+        metricValue = metrics.memory_usage;
+        break;
+      case 'requests':
+        metricValue = metrics.requests;
+        break;
+      default:
+        // Default to CPU usage
+        metricValue = metrics.cpu_usage;
+    }
+
+    // Skip if metric value is undefined
+    if (metricValue === undefined) {
+      return false;
+    }
+
+    // Get the threshold
+    const threshold = scaling.threshold || 70; // Default to 70%
+
+    // Calculate the target number of instances
+    let targetInstances = currentInstances;
+
+    if (metricValue > threshold) {
+      // Scale up
+      targetInstances = Math.min(currentInstances + 1, scaling.max || 10);
+    } else if (metricValue < threshold / 2) {
+      // Scale down
+      targetInstances = Math.max(currentInstances - 1, scaling.min || 1);
+    }
+
+    // Skip if no change
+    if (targetInstances === currentInstances) {
+      return true;
+    }
+
+    // Check cooldown period
+    const lastScalingTime = metrics.last_scaling_time;
+    const cooldown = scaling.cooldown || 300; // Default to 5 minutes
+
+    if (lastScalingTime) {
+      const now = Date.now();
+      const timeSinceLastScaling = now - new Date(lastScalingTime).getTime();
+
+      if (timeSinceLastScaling < cooldown * 1000) {
+        // Still in cooldown period
+        return false;
+      }
+    }
+
+    // Update the number of instances
+    await updateDeploymentInstances(deploymentId, targetInstances);
+
+    return true;
+  } catch (error) {
+    console.error('Error evaluating auto-scaling:', error);
+    return false;
+  }
+}
+
+/**
+ * Update the number of instances for a deployment
+ *
+ * @param deploymentId The ID of the deployment
+ * @param instances The number of instances
+ * @returns Whether the update was successful
+ */
+export async function updateDeploymentInstances(
+  deploymentId: string,
+  instances: number
+): Promise<boolean> {
+  try {
+    const supabase = createBrowserSupabaseClient();
+
+    // Update the metrics with the new number of instances
+    const { data, error: getError } = await supabase
+      .from('agent_deployments')
+      .select('metrics')
+      .eq('id', deploymentId)
+      .single();
+
+    if (getError) {
+      throw getError;
+    }
+
+    // Merge with existing metrics
+    const currentMetrics = data?.metrics || {};
+    const updatedMetrics = {
+      ...currentMetrics,
+      instances,
+      last_scaling_time: new Date().toISOString()
+    };
+
+    // Update the metrics
+    const { error: updateError } = await supabase
+      .from('agent_deployments')
+      .update({ metrics: updatedMetrics })
+      .eq('id', deploymentId);
+
+    if (updateError) {
+      throw updateError;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error updating deployment instances:', error);
+    return false;
+  }
+}
+
+/**
+ * Configure scaling for a deployment
+ *
+ * @param deploymentId The ID of the deployment
+ * @param scaling The scaling configuration
+ * @returns Whether the configuration was successful
+ */
+export async function configureDeploymentScaling(
+  deploymentId: string,
+  scaling: {
+    min?: number;
+    max?: number;
+    target?: number;
+    autoScaling?: boolean;
+    metric?: 'cpu' | 'memory' | 'requests';
+    threshold?: number;
+    cooldown?: number;
+  }
+): Promise<boolean> {
+  try {
+    const supabase = createBrowserSupabaseClient();
+
+    // Get the current configuration
+    const { data, error: getError } = await supabase
+      .from('agent_deployments')
+      .select('configuration')
+      .eq('id', deploymentId)
+      .single();
+
+    if (getError) {
+      throw getError;
+    }
+
+    // Merge with existing configuration
+    const currentConfiguration = data?.configuration || {};
+    const updatedConfiguration = {
+      ...currentConfiguration,
+      scaling
+    };
+
+    // Update the configuration
+    const { error: updateError } = await supabase
+      .from('agent_deployments')
+      .update({ configuration: updatedConfiguration })
+      .eq('id', deploymentId);
+
+    if (updateError) {
+      throw updateError;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error configuring deployment scaling:', error);
     return false;
   }
 }

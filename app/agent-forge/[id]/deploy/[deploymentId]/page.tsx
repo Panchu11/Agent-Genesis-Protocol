@@ -9,22 +9,24 @@ import { Button } from '@/app/components/common/Button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/app/components/common/Card';
 import { useNotification } from '@/app/context/NotificationContext';
 import MonitoringDashboard from '@/app/components/monitoring/Dashboard';
+import AlertsPanel from '@/app/components/monitoring/AlertsPanel';
+import ScalingOptions from '@/app/components/deployment/ScalingOptions';
 
 export default function DeploymentMonitoringPage() {
   const params = useParams();
   const router = useRouter();
   const { showNotification } = useNotification();
-  
+
   const agentId = params.id as string;
   const deploymentId = params.deploymentId as string;
-  
+
   // State for agent and deployment
   const [agent, setAgent] = useState<any | null>(null);
   const [deployment, setDeployment] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isActionInProgress, setIsActionInProgress] = useState(false);
-  
+
   // Load agent and deployment
   useEffect(() => {
     const loadData = async () => {
@@ -36,7 +38,7 @@ export default function DeploymentMonitoringPage() {
           return;
         }
         setAgent(agentData);
-        
+
         // Load deployment
         const deploymentData = await getDeploymentById(deploymentId);
         if (!deploymentData) {
@@ -51,19 +53,19 @@ export default function DeploymentMonitoringPage() {
         setIsLoading(false);
       }
     };
-    
+
     if (agentId && deploymentId) {
       loadData();
     }
   }, [agentId, deploymentId]);
-  
+
   // Handle stop deployment
   const handleStopDeployment = async () => {
     setIsActionInProgress(true);
-    
+
     try {
       const result = await stopDeployment(deploymentId);
-      
+
       if (result.success) {
         showNotification({
           id: 'stop-success',
@@ -71,7 +73,7 @@ export default function DeploymentMonitoringPage() {
           message: 'Agent deployment has been stopped successfully',
           type: 'success'
         });
-        
+
         // Update the deployment status
         setDeployment({
           ...deployment,
@@ -97,14 +99,14 @@ export default function DeploymentMonitoringPage() {
       setIsActionInProgress(false);
     }
   };
-  
+
   // Handle pause deployment
   const handlePauseDeployment = async () => {
     setIsActionInProgress(true);
-    
+
     try {
       const result = await pauseDeployment(deploymentId);
-      
+
       if (result.success) {
         showNotification({
           id: 'pause-success',
@@ -112,7 +114,7 @@ export default function DeploymentMonitoringPage() {
           message: 'Agent deployment has been paused successfully',
           type: 'success'
         });
-        
+
         // Update the deployment status
         setDeployment({
           ...deployment,
@@ -138,14 +140,14 @@ export default function DeploymentMonitoringPage() {
       setIsActionInProgress(false);
     }
   };
-  
+
   // Handle resume deployment
   const handleResumeDeployment = async () => {
     setIsActionInProgress(true);
-    
+
     try {
       const result = await resumeDeployment(deploymentId);
-      
+
       if (result.success) {
         showNotification({
           id: 'resume-success',
@@ -153,7 +155,7 @@ export default function DeploymentMonitoringPage() {
           message: 'Agent deployment has been resumed successfully',
           type: 'success'
         });
-        
+
         // Update the deployment status
         setDeployment({
           ...deployment,
@@ -179,7 +181,7 @@ export default function DeploymentMonitoringPage() {
       setIsActionInProgress(false);
     }
   };
-  
+
   // Get status badge class
   const getStatusBadgeClass = (status: string) => {
     switch (status) {
@@ -198,7 +200,7 @@ export default function DeploymentMonitoringPage() {
         return 'bg-gray-100 text-gray-800';
     }
   };
-  
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-200px)]">
@@ -212,7 +214,7 @@ export default function DeploymentMonitoringPage() {
       </div>
     );
   }
-  
+
   if (error) {
     return (
       <div className="space-y-6">
@@ -222,14 +224,14 @@ export default function DeploymentMonitoringPage() {
             <Button variant="outline">Back to Deployments</Button>
           </Link>
         </div>
-        
+
         <div className="bg-red-50 text-red-700 p-4 rounded-md">
           <p>{error}</p>
         </div>
       </div>
     );
   }
-  
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -245,7 +247,7 @@ export default function DeploymentMonitoringPage() {
           </Link>
         </div>
       </div>
-      
+
       <Card>
         <CardHeader>
           <div className="flex justify-between items-center">
@@ -286,7 +288,7 @@ export default function DeploymentMonitoringPage() {
                 </Button>
               </>
             )}
-            
+
             {deployment?.status === 'paused' && (
               <>
                 <Button
@@ -308,8 +310,28 @@ export default function DeploymentMonitoringPage() {
           </div>
         </CardContent>
       </Card>
-      
-      <MonitoringDashboard deploymentId={deploymentId} />
+
+      <div className="space-y-6">
+        <MonitoringDashboard deploymentId={deploymentId} />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <ScalingOptions
+            deploymentId={deploymentId}
+            configuration={deployment?.configuration}
+            metrics={deployment?.metrics}
+            onUpdate={() => {
+              // Reload deployment data
+              getDeploymentById(deploymentId).then(data => {
+                if (data) {
+                  setDeployment(data);
+                }
+              });
+            }}
+          />
+
+          <AlertsPanel deploymentId={deploymentId} />
+        </div>
+      </div>
     </div>
   );
 }
