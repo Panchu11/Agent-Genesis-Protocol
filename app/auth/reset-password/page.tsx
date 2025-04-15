@@ -1,16 +1,16 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createBrowserSupabaseClient } from '@/app/lib/db/supabase';
 import { Button } from '@/app/components/common/Button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/app/components/common/Card';
 
-export default function ResetPasswordPage() {
+function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  
+
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -26,32 +26,32 @@ export default function ResetPasswordPage() {
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!password || !confirmPassword) {
       setError('Please enter both password fields');
       return;
     }
-    
+
     if (password !== confirmPassword) {
       setError('Passwords do not match');
       return;
     }
-    
+
     if (password.length < 6) {
       setError('Password must be at least 6 characters');
       return;
     }
-    
+
     setIsLoading(true);
     setError(null);
-    
+
     try {
       const supabase = createBrowserSupabaseClient();
-      
+
       const { error } = await supabase.auth.updateUser({
         password,
       });
-      
+
       if (error) {
         setError(error.message);
       } else {
@@ -98,7 +98,7 @@ export default function ResetPasswordPage() {
                   {error}
                 </div>
               )}
-              
+
               <div className="space-y-2">
                 <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                   New Password
@@ -113,7 +113,7 @@ export default function ResetPasswordPage() {
                   disabled={!!error}
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
                   Confirm New Password
@@ -130,9 +130,9 @@ export default function ResetPasswordPage() {
               </div>
             </CardContent>
             <CardFooter className="flex flex-col space-y-2">
-              <Button 
-                type="submit" 
-                className="w-full" 
+              <Button
+                type="submit"
+                className="w-full"
                 disabled={isLoading || !!error}
               >
                 {isLoading ? 'Resetting...' : 'Reset Password'}
@@ -148,5 +148,13 @@ export default function ResetPasswordPage() {
         )}
       </Card>
     </div>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center items-center min-h-[calc(100vh-200px)]">Loading...</div>}>
+      <ResetPasswordForm />
+    </Suspense>
   );
 }
