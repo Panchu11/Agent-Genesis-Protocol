@@ -22,6 +22,10 @@ import {
 } from 'chart.js';
 import { Radar, Bar, Line } from 'react-chartjs-2';
 import 'chartjs-adapter-date-fns';
+import dynamic from 'next/dynamic';
+
+// Dynamically import ForceGraph to avoid SSR issues
+const ForceGraph2D = dynamic(() => import('react-force-graph-2d'), { ssr: false });
 
 // Register ChartJS components
 ChartJS.register(
@@ -53,11 +57,11 @@ interface EnhancedMetricsChartProps {
   colorScheme?: 'default' | 'pastel' | 'vibrant' | 'monochrome';
 }
 
-export default function EnhancedMetricsChart({ 
-  type, 
-  data, 
-  options, 
-  height = 300, 
+export default function EnhancedMetricsChart({
+  type,
+  data,
+  options,
+  height = 300,
   title,
   description,
   showLegend = true,
@@ -65,7 +69,7 @@ export default function EnhancedMetricsChart({
   colorScheme = 'default'
 }: EnhancedMetricsChartProps) {
   const [chartType, setChartType] = useState(type);
-  
+
   // Generate color schemes
   const getColorScheme = (index: number, alpha: number = 1) => {
     const schemes = {
@@ -102,11 +106,11 @@ export default function EnhancedMetricsChart({
         `rgba(189, 189, 189, ${alpha})`,
       ]
     };
-    
+
     const colors = schemes[colorScheme] || schemes.default;
     return colors[index % colors.length];
   };
-  
+
   // Apply color scheme to data
   const colorizedData = {
     ...data,
@@ -116,7 +120,7 @@ export default function EnhancedMetricsChart({
       borderColor: dataset.borderColor || getColorScheme(index, 1),
     }))
   };
-  
+
   // Default options for each chart type
   const defaultRadarOptions: ChartOptions<'radar'> = {
     responsive: true,
@@ -317,7 +321,7 @@ export default function EnhancedMetricsChart({
           {description && <p className="text-sm text-gray-500">{description}</p>}
         </div>
       )}
-      
+
       {interactive && (
         <div className="flex justify-end mb-4">
           <div className="inline-flex rounded-md shadow-sm" role="group">
@@ -357,7 +361,7 @@ export default function EnhancedMetricsChart({
           </div>
         </div>
       )}
-      
+
       <div style={{ height: `${height}px` }}>
         {chartType === 'radar' && (
           <Radar data={colorizedData} options={mergedOptions} />

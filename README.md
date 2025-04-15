@@ -2,7 +2,7 @@
 
 ![Agent Genesis Protocol Logo](./LOGO.png)
 
-The protocol of AI civilization — A zero-cost, decentralized AI ecosystem to create, evolve, socialize, transact, and govern sentient digital agents.
+The protocol of AI civilization — A decentralized AI ecosystem to create, evolve, socialize, transact, and govern sentient digital agents.
 
 ## Vision
 
