@@ -2,10 +2,11 @@
 
 import { createBrowserSupabaseClient } from '../db/supabase';
 import { getAgentById } from '../db/agentStorage';
+import { config } from '../config';
 
 /**
  * Agent Deployment Service
- * 
+ *
  * This service provides functions for deploying agents to different environments
  * and managing their lifecycle.
  */
@@ -51,33 +52,11 @@ export interface DeploymentStatus {
 }
 
 // Available deployment environments
-export const deploymentEnvironments: DeploymentEnvironment[] = [
-  {
-    id: 'sandbox',
-    name: 'Sandbox',
-    description: 'Isolated environment for testing agents with limited capabilities',
-    capabilities: ['chat', 'basic-tools', 'web-search'],
-    maxAgents: 5
-  },
-  {
-    id: 'production',
-    name: 'Production',
-    description: 'Full-featured environment for deployed agents with all capabilities',
-    capabilities: ['chat', 'all-tools', 'web-search', 'api-access', 'file-access'],
-    maxAgents: 3
-  },
-  {
-    id: 'marketplace',
-    name: 'Marketplace',
-    description: 'Public environment for agents available in the marketplace',
-    capabilities: ['chat', 'approved-tools', 'web-search', 'limited-api-access'],
-    maxAgents: 1
-  }
-];
+export const deploymentEnvironments: DeploymentEnvironment[] = config.deploymentEnvironments;
 
 /**
  * Deploy an agent to a specific environment
- * 
+ *
  * @param agentId The ID of the agent to deploy
  * @param configuration The deployment configuration
  * @returns The deployment status
@@ -90,21 +69,21 @@ export async function deployAgent(
     // Get the agent
     const agent = await getAgentById(agentId);
     if (!agent) {
-      return { 
-        success: false, 
-        error: 'Agent not found' 
+      return {
+        success: false,
+        error: 'Agent not found'
       };
     }
-    
+
     // Validate the environment
     const environment = deploymentEnvironments.find(env => env.id === configuration.environment);
     if (!environment) {
-      return { 
-        success: false, 
-        error: `Invalid environment: ${configuration.environment}` 
+      return {
+        success: false,
+        error: `Invalid environment: ${configuration.environment}`
       };
     }
-    
+
     // Check if the agent is already deployed to this environment
     const supabase = createBrowserSupabaseClient();
     const { data: existingDeployments, error: checkError } = await supabase
@@ -113,36 +92,36 @@ export async function deployAgent(
       .eq('agent_id', agentId)
       .eq('environment', configuration.environment)
       .eq('status', 'running');
-    
+
     if (checkError) {
       throw checkError;
     }
-    
+
     if (existingDeployments && existingDeployments.length > 0) {
-      return { 
-        success: false, 
-        error: `Agent is already deployed to ${environment.name}` 
+      return {
+        success: false,
+        error: `Agent is already deployed to ${environment.name}`
       };
     }
-    
+
     // Check if the user has reached the maximum number of agents for this environment
     const { data: userDeployments, error: userDeploymentsError } = await supabase
       .from('agent_deployments')
       .select('*')
       .eq('environment', configuration.environment)
       .eq('status', 'running');
-    
+
     if (userDeploymentsError) {
       throw userDeploymentsError;
     }
-    
+
     if (userDeployments && userDeployments.length >= environment.maxAgents) {
-      return { 
-        success: false, 
-        error: `Maximum number of agents (${environment.maxAgents}) reached for ${environment.name}` 
+      return {
+        success: false,
+        error: `Maximum number of agents (${environment.maxAgents}) reached for ${environment.name}`
       };
     }
-    
+
     // Create the deployment
     const { data: deployment, error: deploymentError } = await supabase
       .from('agent_deployments')
@@ -158,17 +137,17 @@ export async function deployAgent(
       })
       .select()
       .single();
-    
+
     if (deploymentError) {
       throw deploymentError;
     }
-    
+
     // Simulate the deployment process
     // In a real implementation, this would call an external service to deploy the agent
     setTimeout(async () => {
       await updateDeploymentStatus(deployment.id, 'running');
     }, 5000);
-    
+
     return {
       success: true,
       deployment: {
@@ -192,7 +171,7 @@ export async function deployAgent(
 
 /**
  * Update the status of a deployment
- * 
+ *
  * @param deploymentId The ID of the deployment
  * @param status The new status
  * @returns Whether the update was successful
@@ -203,25 +182,25 @@ export async function updateDeploymentStatus(
 ): Promise<boolean> {
   try {
     const supabase = createBrowserSupabaseClient();
-    
+
     const updates: any = { status };
-    
+
     // Set timestamps based on status
     if (status === 'running') {
       updates.deployed_at = new Date().toISOString();
     } else if (status === 'stopped' || status === 'failed') {
       updates.terminated_at = new Date().toISOString();
     }
-    
+
     const { error } = await supabase
       .from('agent_deployments')
       .update(updates)
       .eq('id', deploymentId);
-    
+
     if (error) {
       throw error;
     }
-    
+
     return true;
   } catch (error) {
     console.error('Error updating deployment status:', error);
@@ -231,24 +210,24 @@ export async function updateDeploymentStatus(
 
 /**
  * Get all deployments for an agent
- * 
+ *
  * @param agentId The ID of the agent
  * @returns Array of deployment statuses
  */
 export async function getAgentDeployments(agentId: string): Promise<DeploymentStatus[]> {
   try {
     const supabase = createBrowserSupabaseClient();
-    
+
     const { data, error } = await supabase
       .from('agent_deployments')
       .select('*')
       .eq('agent_id', agentId)
       .order('created_at', { ascending: false });
-    
+
     if (error) {
       throw error;
     }
-    
+
     return (data || []).map(deployment => ({
       id: deployment.id,
       agentId: deployment.agent_id,
@@ -267,28 +246,28 @@ export async function getAgentDeployments(agentId: string): Promise<DeploymentSt
 
 /**
  * Get a specific deployment by ID
- * 
+ *
  * @param deploymentId The ID of the deployment
  * @returns The deployment status
  */
 export async function getDeploymentById(deploymentId: string): Promise<DeploymentStatus | null> {
   try {
     const supabase = createBrowserSupabaseClient();
-    
+
     const { data, error } = await supabase
       .from('agent_deployments')
       .select('*')
       .eq('id', deploymentId)
       .single();
-    
+
     if (error) {
       throw error;
     }
-    
+
     if (!data) {
       return null;
     }
-    
+
     return {
       id: data.id,
       agentId: data.agent_id,
@@ -307,7 +286,7 @@ export async function getDeploymentById(deploymentId: string): Promise<Deploymen
 
 /**
  * Stop a deployed agent
- * 
+ *
  * @param deploymentId The ID of the deployment
  * @returns Whether the operation was successful
  */
@@ -316,30 +295,30 @@ export async function stopDeployment(deploymentId: string): Promise<{ success: b
     // Get the current deployment
     const deployment = await getDeploymentById(deploymentId);
     if (!deployment) {
-      return { 
-        success: false, 
-        error: 'Deployment not found' 
+      return {
+        success: false,
+        error: 'Deployment not found'
       };
     }
-    
+
     // Check if the deployment is already stopped
     if (deployment.status === 'stopped' || deployment.status === 'failed') {
-      return { 
-        success: false, 
-        error: `Deployment is already ${deployment.status}` 
+      return {
+        success: false,
+        error: `Deployment is already ${deployment.status}`
       };
     }
-    
+
     // Update the status to stopped
     const success = await updateDeploymentStatus(deploymentId, 'stopped');
-    
+
     if (!success) {
-      return { 
-        success: false, 
-        error: 'Failed to stop deployment' 
+      return {
+        success: false,
+        error: 'Failed to stop deployment'
       };
     }
-    
+
     return { success: true };
   } catch (error) {
     console.error('Error stopping deployment:', error);
@@ -352,7 +331,7 @@ export async function stopDeployment(deploymentId: string): Promise<{ success: b
 
 /**
  * Pause a deployed agent
- * 
+ *
  * @param deploymentId The ID of the deployment
  * @returns Whether the operation was successful
  */
@@ -361,30 +340,30 @@ export async function pauseDeployment(deploymentId: string): Promise<{ success: 
     // Get the current deployment
     const deployment = await getDeploymentById(deploymentId);
     if (!deployment) {
-      return { 
-        success: false, 
-        error: 'Deployment not found' 
+      return {
+        success: false,
+        error: 'Deployment not found'
       };
     }
-    
+
     // Check if the deployment is running
     if (deployment.status !== 'running') {
-      return { 
-        success: false, 
-        error: `Cannot pause deployment with status ${deployment.status}` 
+      return {
+        success: false,
+        error: `Cannot pause deployment with status ${deployment.status}`
       };
     }
-    
+
     // Update the status to paused
     const success = await updateDeploymentStatus(deploymentId, 'paused');
-    
+
     if (!success) {
-      return { 
-        success: false, 
-        error: 'Failed to pause deployment' 
+      return {
+        success: false,
+        error: 'Failed to pause deployment'
       };
     }
-    
+
     return { success: true };
   } catch (error) {
     console.error('Error pausing deployment:', error);
@@ -397,7 +376,7 @@ export async function pauseDeployment(deploymentId: string): Promise<{ success: 
 
 /**
  * Resume a paused agent
- * 
+ *
  * @param deploymentId The ID of the deployment
  * @returns Whether the operation was successful
  */
@@ -406,30 +385,30 @@ export async function resumeDeployment(deploymentId: string): Promise<{ success:
     // Get the current deployment
     const deployment = await getDeploymentById(deploymentId);
     if (!deployment) {
-      return { 
-        success: false, 
-        error: 'Deployment not found' 
+      return {
+        success: false,
+        error: 'Deployment not found'
       };
     }
-    
+
     // Check if the deployment is paused
     if (deployment.status !== 'paused') {
-      return { 
-        success: false, 
-        error: `Cannot resume deployment with status ${deployment.status}` 
+      return {
+        success: false,
+        error: `Cannot resume deployment with status ${deployment.status}`
       };
     }
-    
+
     // Update the status to running
     const success = await updateDeploymentStatus(deploymentId, 'running');
-    
+
     if (!success) {
-      return { 
-        success: false, 
-        error: 'Failed to resume deployment' 
+      return {
+        success: false,
+        error: 'Failed to resume deployment'
       };
     }
-    
+
     return { success: true };
   } catch (error) {
     console.error('Error resuming deployment:', error);
@@ -442,7 +421,7 @@ export async function resumeDeployment(deploymentId: string): Promise<{ success:
 
 /**
  * Update the metrics for a deployment
- * 
+ *
  * @param deploymentId The ID of the deployment
  * @param metrics The metrics to update
  * @returns Whether the update was successful
@@ -459,32 +438,32 @@ export async function updateDeploymentMetrics(
 ): Promise<boolean> {
   try {
     const supabase = createBrowserSupabaseClient();
-    
+
     // Get current metrics
     const { data, error: getError } = await supabase
       .from('agent_deployments')
       .select('metrics')
       .eq('id', deploymentId)
       .single();
-    
+
     if (getError) {
       throw getError;
     }
-    
+
     // Merge with existing metrics
     const currentMetrics = data?.metrics || {};
     const updatedMetrics = { ...currentMetrics, ...metrics };
-    
+
     // Update the metrics
     const { error: updateError } = await supabase
       .from('agent_deployments')
       .update({ metrics: updatedMetrics })
       .eq('id', deploymentId);
-    
+
     if (updateError) {
       throw updateError;
     }
-    
+
     return true;
   } catch (error) {
     console.error('Error updating deployment metrics:', error);

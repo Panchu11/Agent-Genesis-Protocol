@@ -2,13 +2,12 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { Database } from '../types/database.types';
+import { config } from '../config';
 
-// Your Supabase URL and anon key
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://bxiwqtevhedtanpmhvsl.supabase.co';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ4aXdxdGV2aGVkdGFucG1odnNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ3MDg2NTAsImV4cCI6MjA2MDI4NDY1MH0.C-xJoD4Tb41begYF7j6_2eKhcMuBSsVmMfwIDkPKwjQ';
-
-// Service role key for server-side operations
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+// Get Supabase configuration from centralized config
+const supabaseUrl = config.supabase.url;
+const supabaseAnonKey = config.supabase.anonKey;
+const supabaseServiceRoleKey = config.supabase.serviceRoleKey;
 
 // Create a browser supabase client
 export const createBrowserSupabaseClient = () =>

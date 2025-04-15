@@ -5,11 +5,11 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { getAgentById } from '@/app/lib/db/agentStorage';
-import { 
-  deployAgent, 
-  getAgentDeployments, 
-  stopDeployment, 
-  pauseDeployment, 
+import {
+  deployAgent,
+  getAgentDeployments,
+  stopDeployment,
+  pauseDeployment,
   resumeDeployment,
   deploymentEnvironments,
   DeploymentStatus,
@@ -24,13 +24,13 @@ export default function AgentDeployPage() {
   const router = useRouter();
   const { showNotification } = useNotification();
   const agentId = params.id as string;
-  
+
   // State for agent and deployments
   const [agent, setAgent] = useState<any | null>(null);
   const [deployments, setDeployments] = useState<DeploymentStatus[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   // State for deployment form
   const [selectedEnvironment, setSelectedEnvironment] = useState(deploymentEnvironments[0]?.id || '');
   const [deploymentConfig, setDeploymentConfig] = useState<DeploymentConfiguration>({
@@ -47,11 +47,11 @@ export default function AgentDeployPage() {
       allowedActions: ['chat', 'web-search']
     }
   });
-  
+
   // State for deployment process
   const [isDeploying, setIsDeploying] = useState(false);
   const [isActionInProgress, setIsActionInProgress] = useState(false);
-  
+
   // Load agent and deployments
   useEffect(() => {
     const loadData = async () => {
@@ -63,7 +63,7 @@ export default function AgentDeployPage() {
           return;
         }
         setAgent(agentData);
-        
+
         // Load deployments
         const deploymentsData = await getAgentDeployments(agentId);
         setDeployments(deploymentsData);
@@ -74,12 +74,12 @@ export default function AgentDeployPage() {
         setIsLoading(false);
       }
     };
-    
+
     if (agentId) {
       loadData();
     }
   }, [agentId]);
-  
+
   // Handle environment change
   const handleEnvironmentChange = (environmentId: string) => {
     setSelectedEnvironment(environmentId);
@@ -88,7 +88,7 @@ export default function AgentDeployPage() {
       environment: environmentId
     });
   };
-  
+
   // Handle resource change
   const handleResourceChange = (resource: string, value: number) => {
     setDeploymentConfig({
@@ -99,7 +99,7 @@ export default function AgentDeployPage() {
       }
     });
   };
-  
+
   // Handle constraint change
   const handleConstraintChange = (constraint: string, value: any) => {
     setDeploymentConfig({
@@ -110,11 +110,11 @@ export default function AgentDeployPage() {
       }
     });
   };
-  
+
   // Handle allowed action toggle
   const handleAllowedActionToggle = (action: string) => {
     const currentActions = deploymentConfig.constraints.allowedActions || [];
-    
+
     if (currentActions.includes(action)) {
       handleConstraintChange(
         'allowedActions',
@@ -127,15 +127,15 @@ export default function AgentDeployPage() {
       );
     }
   };
-  
+
   // Handle deploy agent
   const handleDeployAgent = async () => {
     setIsDeploying(true);
     setError(null);
-    
+
     try {
       const result = await deployAgent(agentId, deploymentConfig);
-      
+
       if (result.success) {
         showNotification({
           id: 'deploy-success',
@@ -143,7 +143,7 @@ export default function AgentDeployPage() {
           message: `Agent is being deployed to ${getEnvironmentName(deploymentConfig.environment)}`,
           type: 'success'
         });
-        
+
         // Add the new deployment to the list
         if (result.deployment) {
           setDeployments([result.deployment, ...deployments]);
@@ -170,14 +170,14 @@ export default function AgentDeployPage() {
       setIsDeploying(false);
     }
   };
-  
+
   // Handle stop deployment
   const handleStopDeployment = async (deploymentId: string) => {
     setIsActionInProgress(true);
-    
+
     try {
       const result = await stopDeployment(deploymentId);
-      
+
       if (result.success) {
         showNotification({
           id: 'stop-success',
@@ -185,9 +185,9 @@ export default function AgentDeployPage() {
           message: 'Agent deployment has been stopped successfully',
           type: 'success'
         });
-        
+
         // Update the deployment status in the list
-        setDeployments(deployments.map(deployment => 
+        setDeployments(deployments.map(deployment =>
           deployment.id === deploymentId
             ? { ...deployment, status: 'stopped' }
             : deployment
@@ -212,14 +212,14 @@ export default function AgentDeployPage() {
       setIsActionInProgress(false);
     }
   };
-  
+
   // Handle pause deployment
   const handlePauseDeployment = async (deploymentId: string) => {
     setIsActionInProgress(true);
-    
+
     try {
       const result = await pauseDeployment(deploymentId);
-      
+
       if (result.success) {
         showNotification({
           id: 'pause-success',
@@ -227,9 +227,9 @@ export default function AgentDeployPage() {
           message: 'Agent deployment has been paused successfully',
           type: 'success'
         });
-        
+
         // Update the deployment status in the list
-        setDeployments(deployments.map(deployment => 
+        setDeployments(deployments.map(deployment =>
           deployment.id === deploymentId
             ? { ...deployment, status: 'paused' }
             : deployment
@@ -254,14 +254,14 @@ export default function AgentDeployPage() {
       setIsActionInProgress(false);
     }
   };
-  
+
   // Handle resume deployment
   const handleResumeDeployment = async (deploymentId: string) => {
     setIsActionInProgress(true);
-    
+
     try {
       const result = await resumeDeployment(deploymentId);
-      
+
       if (result.success) {
         showNotification({
           id: 'resume-success',
@@ -269,9 +269,9 @@ export default function AgentDeployPage() {
           message: 'Agent deployment has been resumed successfully',
           type: 'success'
         });
-        
+
         // Update the deployment status in the list
-        setDeployments(deployments.map(deployment => 
+        setDeployments(deployments.map(deployment =>
           deployment.id === deploymentId
             ? { ...deployment, status: 'running' }
             : deployment
@@ -296,24 +296,24 @@ export default function AgentDeployPage() {
       setIsActionInProgress(false);
     }
   };
-  
+
   // Get environment name by ID
   const getEnvironmentName = (environmentId: string) => {
     const environment = deploymentEnvironments.find(env => env.id === environmentId);
     return environment ? environment.name : environmentId;
   };
-  
+
   // Format date
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'N/A';
-    
+
     try {
       return format(new Date(dateString), 'MMM d, yyyy h:mm a');
     } catch (error) {
       return 'Invalid date';
     }
   };
-  
+
   // Get status badge class
   const getStatusBadgeClass = (status: string) => {
     switch (status) {
@@ -332,7 +332,7 @@ export default function AgentDeployPage() {
         return 'bg-gray-100 text-gray-800';
     }
   };
-  
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-200px)]">
@@ -346,7 +346,7 @@ export default function AgentDeployPage() {
       </div>
     );
   }
-  
+
   if (error && !agent) {
     return (
       <div className="space-y-6">
@@ -356,14 +356,14 @@ export default function AgentDeployPage() {
             <Button variant="outline">Back to Agents</Button>
           </Link>
         </div>
-        
+
         <div className="bg-red-50 text-red-700 p-4 rounded-md">
           <p>{error}</p>
         </div>
       </div>
     );
   }
-  
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -379,13 +379,13 @@ export default function AgentDeployPage() {
           </Link>
         </div>
       </div>
-      
+
       {error && (
         <div className="bg-red-50 text-red-700 p-4 rounded-md">
           <p>{error}</p>
         </div>
       )}
-      
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="md:col-span-1">
           <Card>
@@ -426,7 +426,7 @@ export default function AgentDeployPage() {
                     ))}
                   </div>
                 </div>
-                
+
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-700">
                     Resources
@@ -452,7 +452,7 @@ export default function AgentDeployPage() {
                         className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                       />
                     </div>
-                    
+
                     <div>
                       <div className="flex justify-between">
                         <label htmlFor="cpu" className="text-xs text-gray-500">
@@ -473,7 +473,7 @@ export default function AgentDeployPage() {
                         className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                       />
                     </div>
-                    
+
                     <div>
                       <div className="flex justify-between">
                         <label htmlFor="storage" className="text-xs text-gray-500">
@@ -496,7 +496,7 @@ export default function AgentDeployPage() {
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-700">
                     Constraints
@@ -522,7 +522,7 @@ export default function AgentDeployPage() {
                         className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                       />
                     </div>
-                    
+
                     <div>
                       <div className="flex justify-between">
                         <label htmlFor="maxCost" className="text-xs text-gray-500">
@@ -543,7 +543,7 @@ export default function AgentDeployPage() {
                         className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                       />
                     </div>
-                    
+
                     <div>
                       <label className="text-xs text-gray-500">
                         Allowed Actions
@@ -587,7 +587,7 @@ export default function AgentDeployPage() {
             </CardFooter>
           </Card>
         </div>
-        
+
         <div className="md:col-span-2">
           <Card>
             <CardHeader>
@@ -633,8 +633,17 @@ export default function AgentDeployPage() {
                             </div>
                           )}
                         </div>
-                        
+
                         <div className="flex space-x-2">
+                          <Link href={`/agent-forge/${agentId}/deploy/${deployment.id}`}>
+                            <Button
+                              variant="default"
+                              size="sm"
+                            >
+                              Monitor
+                            </Button>
+                          </Link>
+
                           {deployment.status === 'running' && (
                             <>
                               <Button
@@ -655,7 +664,7 @@ export default function AgentDeployPage() {
                               </Button>
                             </>
                           )}
-                          
+
                           {deployment.status === 'paused' && (
                             <>
                               <Button
@@ -678,7 +687,7 @@ export default function AgentDeployPage() {
                           )}
                         </div>
                       </div>
-                      
+
                       {deployment.metrics && (
                         <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2">
                           <div className="p-2 bg-gray-50 rounded-md">
@@ -691,21 +700,21 @@ export default function AgentDeployPage() {
                                 : 'N/A'}
                             </div>
                           </div>
-                          
+
                           <div className="p-2 bg-gray-50 rounded-md">
                             <div className="text-xs text-gray-500">Requests</div>
                             <div className="font-medium">
                               {deployment.metrics.requests || 'N/A'}
                             </div>
                           </div>
-                          
+
                           <div className="p-2 bg-gray-50 rounded-md">
                             <div className="text-xs text-gray-500">Errors</div>
                             <div className="font-medium">
                               {deployment.metrics.errors || 'N/A'}
                             </div>
                           </div>
-                          
+
                           <div className="p-2 bg-gray-50 rounded-md">
                             <div className="text-xs text-gray-500">Cost</div>
                             <div className="font-medium">

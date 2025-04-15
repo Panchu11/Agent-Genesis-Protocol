@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { createBrowserSupabaseClient } from '@/app/lib/db/supabase';
 import { Button } from '../common/Button';
@@ -41,8 +42,18 @@ export function Header() {
     <header className="bg-white border-b">
       <nav className="mx-auto flex max-w-7xl items-center justify-between p-6 lg:px-8" aria-label="Global">
         <div className="flex lg:flex-1">
-          <Link href="/" className="-m-1.5 p-1.5">
+          <Link href="/" className="-m-1.5 p-1.5 flex items-center">
             <span className="sr-only">Agent Genesis Protocol</span>
+            <div className="relative h-8 w-8 mr-2">
+              <Image
+                src="/logo.svg"
+                alt="AGP Logo"
+                fill
+                sizes="32px"
+                className="object-contain"
+                priority
+              />
+            </div>
             <span className="text-xl font-bold">AGP</span>
           </Link>
         </div>
@@ -113,8 +124,18 @@ export function Header() {
           <div className="fixed inset-0 z-50" onClick={() => setMobileMenuOpen(false)} />
           <div className="fixed inset-y-0 right-0 z-50 w-full overflow-y-auto bg-white px-6 py-6 sm:max-w-sm sm:ring-1 sm:ring-gray-900/10">
             <div className="flex items-center justify-between">
-              <Link href="/" className="-m-1.5 p-1.5">
+              <Link href="/" className="-m-1.5 p-1.5 flex items-center">
                 <span className="sr-only">Agent Genesis Protocol</span>
+                <div className="relative h-8 w-8 mr-2">
+                  <Image
+                    src="/logo.svg"
+                    alt="AGP Logo"
+                    fill
+                    sizes="32px"
+                    className="object-contain"
+                    priority
+                  />
+                </div>
                 <span className="text-xl font-bold">AGP</span>
               </Link>
               <button

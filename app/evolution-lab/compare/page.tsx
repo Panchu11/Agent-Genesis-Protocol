@@ -7,7 +7,7 @@ import { getAllAgents, StoredAgent } from '@/app/lib/db/agentStorage';
 import { getAgentMetrics, AgentMetric } from '@/app/lib/db/experiments';
 import { Button } from '@/app/components/common/Button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/app/components/common/Card';
-import MetricsChart from '@/app/components/evolution/MetricsChart';
+import LazyMetricsChart from '@/app/components/evolution/LazyMetricsChart';
 
 export default function CompareAgentsPage() {
   const [agents, setAgents] = useState<StoredAgent[]>([]);
@@ -276,7 +276,7 @@ export default function CompareAgentsPage() {
               <h3 className="text-lg font-medium mb-2">Performance Visualization</h3>
               <div className="bg-gray-50 p-4 rounded-lg">
                 {selectedAgents.length > 0 ? (
-                  <MetricsChart
+                  <LazyMetricsChart
                     type="radar"
                     height={350}
                     data={{

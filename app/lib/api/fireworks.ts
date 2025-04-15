@@ -1,10 +1,11 @@
 'use client';
 
 // Fireworks AI API client for Dobby-Unhinged model
+import { config } from '../config';
 
-const FIREWORKS_API_KEY = 'fw_3ZN3Es5mT79GXi3iX5RPpfwL';
-const MODEL_ID = 'accounts/sentientfoundation/models/dobby-unhinged-llama-3-3-70b-new';
-const API_URL = 'https://api.fireworks.ai/inference/v1/chat/completions';
+const FIREWORKS_API_KEY = config.fireworks.apiKey;
+const MODEL_ID = config.fireworks.modelId;
+const API_URL = `${config.fireworks.apiUrl}/chat/completions`;
 
 export interface Message {
   role: 'system' | 'user' | 'assistant';

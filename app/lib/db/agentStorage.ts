@@ -1,6 +1,7 @@
 'use client';
 
 import { createBrowserSupabaseClient } from './supabase';
+import { cache } from '../utils/cache';
 
 export interface AgentPersonality {
   archetype: string;
@@ -93,25 +94,29 @@ export async function createAgent(
 
 // Get all agents for a user
 export async function getAllAgents(userId: string): Promise<StoredAgent[]> {
-  try {
-    const supabase = createBrowserSupabaseClient();
+  const cacheKey = `agents:${userId}`;
 
-    const { data, error } = await supabase
-      .from('agents')
-      .select('*')
-      .eq('user_id', userId)
-      .order('updated_at', { ascending: false });
+  return cache.getOrSet(cacheKey, async () => {
+    try {
+      const supabase = createBrowserSupabaseClient();
 
-    if (error) {
+      const { data, error } = await supabase
+        .from('agents')
+        .select('*')
+        .eq('user_id', userId)
+        .order('updated_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching agents:', error);
+        return [];
+      }
+
+      return data || [];
+    } catch (error) {
       console.error('Error fetching agents:', error);
       return [];
     }
-
-    return data || [];
-  } catch (error) {
-    console.error('Error fetching agents:', error);
-    return [];
-  }
+  }, 60 * 1000); // Cache for 1 minute
 }
 
 // Get public agents
@@ -140,25 +145,29 @@ export async function getPublicAgents(limit: number = 10, offset: number = 0): P
 
 // Get agent by ID
 export async function getAgentById(agentId: string): Promise<StoredAgent | null> {
-  try {
-    const supabase = createBrowserSupabaseClient();
+  const cacheKey = `agent:${agentId}`;
 
-    const { data, error } = await supabase
-      .from('agents')
-      .select('*')
-      .eq('id', agentId)
-      .single();
+  return cache.getOrSet(cacheKey, async () => {
+    try {
+      const supabase = createBrowserSupabaseClient();
 
-    if (error) {
+      const { data, error } = await supabase
+        .from('agents')
+        .select('*')
+        .eq('id', agentId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching agent:', error);
+        return null;
+      }
+
+      return data;
+    } catch (error) {
       console.error('Error fetching agent:', error);
       return null;
     }
-
-    return data;
-  } catch (error) {
-    console.error('Error fetching agent:', error);
-    return null;
-  }
+  }, 60 * 1000); // Cache for 1 minute
 }
 
 // Update an agent
@@ -225,6 +234,14 @@ export async function updateAgent(
       return null;
     }
 
+    // Invalidate cache for this agent
+    cache.delete(`agent:${agentId}`);
+
+    // Invalidate the user's agents list cache
+    if (data && data.user_id) {
+      cache.delete(`agents:${data.user_id}`);
+    }
+
     return data;
   } catch (error) {
     console.error('Error updating agent:', error);
@@ -247,6 +264,12 @@ export async function deleteAgent(agentId: string, userId: string): Promise<bool
       console.error('Error deleting agent:', error);
       return false;
     }
+
+    // Invalidate cache for this agent
+    cache.delete(`agent:${agentId}`);
+
+    // Invalidate the user's agents list cache
+    cache.delete(`agents:${userId}`);
 
     return true;
   } catch (error) {
