@@ -12,12 +12,12 @@ export default function AgentDetailPage() {
   const router = useRouter();
   const params = useParams();
   const agentId = params.id as string;
-  
+
   const [agent, setAgent] = useState<StoredAgent | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
-  
+
   // UI state
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState('');
@@ -34,7 +34,7 @@ export default function AgentDetailPage() {
       const { data: { user } } = await supabase.auth.getUser();
       setUserId(user?.id || null);
     };
-    
+
     getUser();
   }, []);
 
@@ -43,16 +43,16 @@ export default function AgentDetailPage() {
     const loadAgentData = async () => {
       setIsLoading(true);
       setError(null);
-      
+
       try {
         const agentData = await getAgentById(agentId);
-        
+
         if (!agentData) {
           setError('Agent not found');
           setIsLoading(false);
           return;
         }
-        
+
         setAgent(agentData);
         setName(agentData.name);
         setDescription(agentData.description || '');
@@ -64,23 +64,23 @@ export default function AgentDetailPage() {
         setIsLoading(false);
       }
     };
-    
+
     loadAgentData();
   }, [agentId]);
 
   // Handle agent update
   const handleUpdateAgent = async () => {
     if (!agent || !userId) return;
-    
+
     setIsSaving(true);
-    
+
     try {
       const updatedAgent = await updateAgent(agentId, {
         name,
         description,
         is_public: isPublic
       }, userId);
-      
+
       if (updatedAgent) {
         setAgent(updatedAgent);
         setIsEditing(false);
@@ -98,16 +98,16 @@ export default function AgentDetailPage() {
   // Handle agent deletion
   const handleDeleteAgent = async () => {
     if (!agent || !userId) return;
-    
+
     if (!confirm('Are you sure you want to delete this agent? This action cannot be undone.')) {
       return;
     }
-    
+
     setIsDeleting(true);
-    
+
     try {
       const success = await deleteAgent(agentId, userId);
-      
+
       if (success) {
         router.push('/agent-forge');
       } else {
@@ -249,7 +249,7 @@ export default function AgentDetailPage() {
                 {error}
               </div>
             )}
-            
+
             <div className="space-y-2">
               <label htmlFor="name" className="block text-sm font-medium text-gray-700">
                 Agent Name
@@ -262,7 +262,7 @@ export default function AgentDetailPage() {
                 required
               />
             </div>
-            
+
             <div className="space-y-2">
               <label htmlFor="description" className="block text-sm font-medium text-gray-700">
                 Description
@@ -274,7 +274,7 @@ export default function AgentDetailPage() {
                 className="w-full rounded-md border border-gray-300 p-2 min-h-[100px]"
               />
             </div>
-            
+
             <div className="flex items-center space-x-2">
               <input
                 type="checkbox"
@@ -290,8 +290,8 @@ export default function AgentDetailPage() {
           </CardContent>
           <CardFooter className="flex justify-between">
             <div>
-              <Button 
-                variant="destructive" 
+              <Button
+                variant="destructive"
                 onClick={handleDeleteAgent}
                 disabled={isDeleting}
               >
@@ -299,8 +299,8 @@ export default function AgentDetailPage() {
               </Button>
             </div>
             <div className="flex space-x-2">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => {
                   setIsEditing(false);
                   setName(agent.name);
@@ -311,7 +311,7 @@ export default function AgentDetailPage() {
               >
                 Cancel
               </Button>
-              <Button 
+              <Button
                 onClick={handleUpdateAgent}
                 disabled={isSaving || !name.trim()}
               >
@@ -343,7 +343,7 @@ export default function AgentDetailPage() {
                   </div>
                 </CardContent>
               </Card>
-              
+
               <Card className="md:col-span-2">
                 <CardHeader>
                   <CardTitle>Agent Summary</CardTitle>
@@ -353,12 +353,12 @@ export default function AgentDetailPage() {
                     <h3 className="text-sm font-medium text-gray-700">Description</h3>
                     <p className="text-sm text-gray-900">{agent.description || 'No description provided'}</p>
                   </div>
-                  
+
                   <div>
                     <h3 className="text-sm font-medium text-gray-700">Personality</h3>
                     <p className="text-sm text-gray-900">{agent.personality.description || 'No personality description provided'}</p>
                   </div>
-                  
+
                   <div>
                     <h3 className="text-sm font-medium text-gray-700">Capabilities</h3>
                     <div className="flex flex-wrap gap-1 mt-1">
@@ -374,28 +374,34 @@ export default function AgentDetailPage() {
                   </div>
                 </CardContent>
               </Card>
-              
+
               <Card className="md:col-span-3">
                 <CardHeader>
                   <CardTitle>Actions</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <Button variant="outline" className="w-full" disabled>
-                      Chat with Agent
-                    </Button>
-                    <Button variant="outline" className="w-full" disabled>
-                      Run Experiment
-                    </Button>
-                    <Button variant="outline" className="w-full" disabled>
-                      Add to Knowledge Base
-                    </Button>
+                    <Link href={`/agent-forge/${agentId}/deploy`} className="w-full">
+                      <Button variant="outline" className="w-full">
+                        Deploy Agent
+                      </Button>
+                    </Link>
+                    <Link href={`/evolution-lab/evolve?agent=${agentId}`} className="w-full">
+                      <Button variant="outline" className="w-full">
+                        Evolve Agent
+                      </Button>
+                    </Link>
+                    <Link href={`/agent-forge/${agentId}/versions`} className="w-full">
+                      <Button variant="outline" className="w-full">
+                        Version History
+                      </Button>
+                    </Link>
                   </div>
                 </CardContent>
               </Card>
             </div>
           )}
-          
+
           {activeTab === 'personality' && (
             <Card>
               <CardHeader>
@@ -411,14 +417,14 @@ export default function AgentDetailPage() {
                     <p className="font-medium">{agent.personality.archetype}</p>
                   </div>
                 </div>
-                
+
                 <div>
                   <h3 className="text-sm font-medium text-gray-700 mb-2">Personality Description</h3>
                   <div className="bg-gray-100 p-3 rounded-md">
                     <p>{agent.personality.description || 'No personality description provided'}</p>
                   </div>
                 </div>
-                
+
                 <div>
                   <h3 className="text-sm font-medium text-gray-700 mb-2">Traits</h3>
                   <div className="flex flex-wrap gap-2">
@@ -429,7 +435,7 @@ export default function AgentDetailPage() {
                     ))}
                   </div>
                 </div>
-                
+
                 <div>
                   <h3 className="text-sm font-medium text-gray-700 mb-2">Values</h3>
                   <div className="flex flex-wrap gap-2">
@@ -440,7 +446,7 @@ export default function AgentDetailPage() {
                     ))}
                   </div>
                 </div>
-                
+
                 <div>
                   <h3 className="text-sm font-medium text-gray-700 mb-2">Communication Tone</h3>
                   <div className="bg-gray-100 p-3 rounded-md">
@@ -450,7 +456,7 @@ export default function AgentDetailPage() {
               </CardContent>
             </Card>
           )}
-          
+
           {activeTab === 'capabilities' && (
             <Card>
               <CardHeader>
@@ -479,7 +485,7 @@ export default function AgentDetailPage() {
               </CardContent>
             </Card>
           )}
-          
+
           {activeTab === 'versions' && (
             <Card>
               <CardHeader>
@@ -489,10 +495,18 @@ export default function AgentDetailPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="bg-yellow-50 p-4 rounded-md text-center">
-                  <p className="text-yellow-700">
-                    Version history is not available yet. This feature is coming soon.
+                <div className="space-y-4">
+                  <p className="text-sm text-gray-600">
+                    View the complete version history of this agent, including all changes made to its personality and capabilities.
                   </p>
+
+                  <div className="flex justify-center">
+                    <Link href={`/agent-forge/${agentId}/versions`}>
+                      <Button>
+                        View Version History
+                      </Button>
+                    </Link>
+                  </div>
                 </div>
               </CardContent>
             </Card>

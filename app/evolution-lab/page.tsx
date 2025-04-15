@@ -15,7 +15,7 @@ export default function EvolutionLabPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card className="md:col-span-1">
           <CardHeader>
             <CardTitle>Create Experiment</CardTitle>
@@ -31,6 +31,25 @@ export default function EvolutionLabPage() {
           <CardFooter>
             <Link href="/evolution-lab/create" className="w-full">
               <Button className="w-full">Create Experiment</Button>
+            </Link>
+          </CardFooter>
+        </Card>
+
+        <Card className="md:col-span-1">
+          <CardHeader>
+            <CardTitle>Evolve Agents</CardTitle>
+            <CardDescription>
+              Enhance agents based on experiments
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-gray-600">
+              Evolve your agents based on experiment results or merge traits from multiple agents to create new ones.
+            </p>
+          </CardContent>
+          <CardFooter>
+            <Link href="/evolution-lab/evolve" className="w-full">
+              <Button className="w-full">Evolve Agent</Button>
             </Link>
           </CardFooter>
         </Card>
@@ -88,7 +107,7 @@ export default function EvolutionLabPage() {
           </Link>
         </div>
       </div>
-      
+
       <div className="mt-10">
         <h2 className="text-xl font-semibold mb-4">Agent Comparison</h2>
         <div className="bg-gray-100 rounded-lg p-8 text-center">
