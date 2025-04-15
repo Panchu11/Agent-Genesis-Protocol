@@ -2,18 +2,20 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/app/components/common/Button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/app/components/common/Card';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/app/components/common/Card';
 import { generateChatResponse, Message as ApiMessage } from '@/app/lib/api/fireworks';
 import { useNotification } from '@/app/context/NotificationContext';
+import { X, MessageSquare, Send } from 'lucide-react';
 
 interface Message {
   role: 'user' | 'assistant';
   content: string;
 }
 
-export default function ChatPage() {
+export default function FloatingChat() {
   const { showNotification } = useNotification();
-
+  
+  const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
@@ -27,11 +29,23 @@ export default function ChatPage() {
   const [lastUserMessageTime, setLastUserMessageTime] = useState<number>(Date.now());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const responseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Scroll to bottom when messages change
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, streamingMessage]);
+    if (isOpen) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, streamingMessage, isOpen]);
+
+  // Focus input when chat is opened
+  useEffect(() => {
+    if (isOpen) {
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
+    }
+  }, [isOpen]);
 
   // Clean up any timeouts when component unmounts
   useEffect(() => {
@@ -41,6 +55,11 @@ export default function ChatPage() {
       }
     };
   }, []);
+
+  // Toggle chat open/closed
+  const toggleChat = () => {
+    setIsOpen(prev => !prev);
+  };
 
   // Check for message loop prevention
   const checkMessageLoopPrevention = () => {
@@ -54,7 +73,7 @@ export default function ChatPage() {
       });
       return false;
     }
-
+    
     // Check if the last user message was too recent (less than 1 second ago)
     const now = Date.now();
     if (now - lastUserMessageTime < 1000) {
@@ -66,7 +85,7 @@ export default function ChatPage() {
       });
       return false;
     }
-
+    
     return true;
   };
 
@@ -74,10 +93,10 @@ export default function ChatPage() {
     e.preventDefault();
 
     if (!input.trim() || isLoading) return;
-
+    
     // Check for message loop prevention
     if (!checkMessageLoopPrevention()) return;
-
+    
     // Update last user message time
     setLastUserMessageTime(Date.now());
 
@@ -88,7 +107,7 @@ export default function ChatPage() {
     setIsLoading(true);
     setStreamingMessage('');
     setIsProcessingResponse(true);
-
+    
     // Clear any existing response timeout
     if (responseTimeoutRef.current) {
       clearTimeout(responseTimeoutRef.current);
@@ -99,7 +118,7 @@ export default function ChatPage() {
       const apiMessages: ApiMessage[] = [
         {
           role: 'system',
-          content: `You are AGP, a helpful and creative AI assistant powered by Dobby-Unhinged.
+          content: `You are AGP, a helpful and creative AI assistant powered by Dobby-Unhinged. 
 
 Important instructions:
 1. You are designed to be helpful, creative, and engaging.
@@ -153,7 +172,7 @@ Important instructions:
         setIsLoading(false);
         setStreamingMessage('');
       }, 100);
-
+      
       // Set a timeout to allow for a new message
       responseTimeoutRef.current = setTimeout(() => {
         setIsProcessingResponse(false);
@@ -162,78 +181,82 @@ Important instructions:
   };
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">AGP Chat</h1>
-        <p className="mt-2 text-lg text-gray-600">
-          Chat with AGP powered by Dobby-Unhinged
-        </p>
-      </div>
-
-      <Card className="h-[calc(100vh-250px)] flex flex-col">
-        <CardHeader>
-          <CardTitle>Chat</CardTitle>
-          <CardDescription>
-            Unfiltered conversations with Dobby-Unhinged
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex-1 overflow-y-auto">
-          <div className="space-y-4">
-            {messages.map((message, index) => (
-              <div
-                key={index}
-                className={`flex ${
-                  message.role === 'user' ? 'justify-end' : 'justify-start'
-                }`}
-              >
+    <div className="fixed bottom-4 right-4 z-50">
+      {isOpen ? (
+        <Card className="w-80 md:w-96 h-[500px] flex flex-col shadow-lg">
+          <CardHeader className="p-3 flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-md">AGP Chat</CardTitle>
+            <Button variant="ghost" size="icon" onClick={toggleChat} className="h-8 w-8">
+              <X className="h-4 w-4" />
+            </Button>
+          </CardHeader>
+          <CardContent className="flex-1 overflow-y-auto p-3">
+            <div className="space-y-4">
+              {messages.map((message, index) => (
                 <div
-                  className={`max-w-[80%] rounded-lg px-4 py-2 ${
-                    message.role === 'user'
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted'
+                  key={index}
+                  className={`flex ${
+                    message.role === 'user' ? 'justify-end' : 'justify-start'
                   }`}
                 >
-                  <p className="whitespace-pre-wrap">{message.content}</p>
-                </div>
-              </div>
-            ))}
-            {streamingMessage && (
-              <div className="flex justify-start">
-                <div className="max-w-[80%] rounded-lg px-4 py-2 bg-muted">
-                  <p className="whitespace-pre-wrap">{streamingMessage}</p>
-                </div>
-              </div>
-            )}
-            {isLoading && !streamingMessage && (
-              <div className="flex justify-start">
-                <div className="max-w-[80%] rounded-lg px-4 py-2 bg-muted">
-                  <div className="flex space-x-2">
-                    <div className="h-2 w-2 rounded-full bg-gray-400 animate-bounce"></div>
-                    <div className="h-2 w-2 rounded-full bg-gray-400 animate-bounce [animation-delay:0.2s]"></div>
-                    <div className="h-2 w-2 rounded-full bg-gray-400 animate-bounce [animation-delay:0.4s]"></div>
+                  <div
+                    className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
+                      message.role === 'user'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted'
+                    }`}
+                  >
+                    <p className="whitespace-pre-wrap">{message.content}</p>
                   </div>
                 </div>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-        </CardContent>
-        <CardFooter className="border-t p-4">
-          <form onSubmit={handleSendMessage} className="flex w-full space-x-2">
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Type your message..."
-              className="flex-1 rounded-md border border-input px-3 py-2 text-sm ring-offset-background"
-              disabled={isLoading}
-            />
-            <Button type="submit" disabled={isLoading || !input.trim()}>
-              Send
-            </Button>
-          </form>
-        </CardFooter>
-      </Card>
+              ))}
+              {streamingMessage && (
+                <div className="flex justify-start">
+                  <div className="max-w-[80%] rounded-lg px-3 py-2 bg-muted text-sm">
+                    <p className="whitespace-pre-wrap">{streamingMessage}</p>
+                  </div>
+                </div>
+              )}
+              {isLoading && !streamingMessage && (
+                <div className="flex justify-start">
+                  <div className="max-w-[80%] rounded-lg px-3 py-2 bg-muted">
+                    <div className="flex space-x-2">
+                      <div className="h-2 w-2 rounded-full bg-gray-400 animate-bounce"></div>
+                      <div className="h-2 w-2 rounded-full bg-gray-400 animate-bounce [animation-delay:0.2s]"></div>
+                      <div className="h-2 w-2 rounded-full bg-gray-400 animate-bounce [animation-delay:0.4s]"></div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+          </CardContent>
+          <CardFooter className="border-t p-3">
+            <form onSubmit={handleSendMessage} className="flex w-full space-x-2">
+              <input
+                ref={inputRef}
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Type your message..."
+                className="flex-1 rounded-md border border-input px-3 py-2 text-sm ring-offset-background"
+                disabled={isLoading}
+              />
+              <Button type="submit" size="icon" disabled={isLoading || !input.trim()}>
+                <Send className="h-4 w-4" />
+              </Button>
+            </form>
+          </CardFooter>
+        </Card>
+      ) : (
+        <Button
+          onClick={toggleChat}
+          className="rounded-full h-12 w-12 shadow-lg"
+          aria-label="Open chat"
+        >
+          <MessageSquare className="h-5 w-5" />
+        </Button>
+      )}
     </div>
   );
 }
