@@ -6,7 +6,7 @@ import { cache } from '../utils/cache';
 
 /**
  * Marketplace Service
- * 
+ *
  * This service provides functions for interacting with the agent marketplace,
  * including listing, publishing, and acquiring agents.
  */
@@ -54,17 +54,17 @@ export interface MarketplaceStats {
 
 /**
  * Get featured agents from the marketplace
- * 
+ *
  * @param limit Maximum number of agents to return
  * @returns Array of featured marketplace agents
  */
 export async function getFeaturedAgents(limit: number = 6): Promise<MarketplaceAgent[]> {
   const cacheKey = `marketplace:featured:${limit}`;
-  
+
   return cache.getOrSet(cacheKey, async () => {
     try {
       const supabase = createBrowserSupabaseClient();
-      
+
       const { data, error } = await supabase
         .from('marketplace_agents')
         .select(`
@@ -75,12 +75,12 @@ export async function getFeaturedAgents(limit: number = 6): Promise<MarketplaceA
         .eq('is_approved', true)
         .order('featured_order', { ascending: true })
         .limit(limit);
-      
+
       if (error) {
         console.error('Error fetching featured agents:', error);
         return [];
       }
-      
+
       return data.map(formatMarketplaceAgent);
     } catch (error) {
       console.error('Error fetching featured agents:', error);
@@ -91,26 +91,26 @@ export async function getFeaturedAgents(limit: number = 6): Promise<MarketplaceA
 
 /**
  * Get marketplace categories
- * 
+ *
  * @returns Array of marketplace categories
  */
 export async function getMarketplaceCategories(): Promise<MarketplaceCategory[]> {
   const cacheKey = 'marketplace:categories';
-  
+
   return cache.getOrSet(cacheKey, async () => {
     try {
       const supabase = createBrowserSupabaseClient();
-      
+
       const { data, error } = await supabase
         .from('marketplace_categories')
         .select('*, agent_count:marketplace_agents(count)')
         .order('name', { ascending: true });
-      
+
       if (error) {
         console.error('Error fetching marketplace categories:', error);
         return [];
       }
-      
+
       return data.map(category => ({
         id: category.id,
         name: category.name,
@@ -127,7 +127,7 @@ export async function getMarketplaceCategories(): Promise<MarketplaceCategory[]>
 
 /**
  * Search for agents in the marketplace
- * 
+ *
  * @param query Search query
  * @param filters Filters to apply (category, price range, etc.)
  * @param sort Sort order
@@ -149,7 +149,7 @@ export async function searchMarketplaceAgents(
 ): Promise<{ agents: MarketplaceAgent[]; total: number }> {
   try {
     const supabase = createBrowserSupabaseClient();
-    
+
     let queryBuilder = supabase
       .from('marketplace_agents')
       .select(`
@@ -158,29 +158,29 @@ export async function searchMarketplaceAgents(
         total_count:marketplace_agents(count)
       `, { count: 'exact' })
       .eq('is_approved', true);
-    
+
     // Apply search query
     if (query) {
       queryBuilder = queryBuilder.or(`name.ilike.%${query}%,description.ilike.%${query}%,archetype.ilike.%${query}%`);
     }
-    
+
     // Apply category filter
     if (filters.categories && filters.categories.length > 0) {
       queryBuilder = queryBuilder.contains('categories', filters.categories);
     }
-    
+
     // Apply rating filter
     if (filters.min_rating) {
       queryBuilder = queryBuilder.gte('rating', filters.min_rating);
     }
-    
+
     // Apply price filters
     if (filters.free_only) {
       queryBuilder = queryBuilder.eq('price', 0);
     } else if (filters.max_price !== undefined) {
       queryBuilder = queryBuilder.lte('price', filters.max_price);
     }
-    
+
     // Apply sorting
     switch (sort) {
       case 'popular':
@@ -199,19 +199,19 @@ export async function searchMarketplaceAgents(
         queryBuilder = queryBuilder.order('price', { ascending: false });
         break;
     }
-    
+
     // Apply pagination
     const from = (page - 1) * limit;
     const to = from + limit - 1;
     queryBuilder = queryBuilder.range(from, to);
-    
+
     const { data, error, count } = await queryBuilder;
-    
+
     if (error) {
       console.error('Error searching marketplace agents:', error);
       return { agents: [], total: 0 };
     }
-    
+
     return {
       agents: data.map(formatMarketplaceAgent),
       total: count || 0
@@ -224,17 +224,27 @@ export async function searchMarketplaceAgents(
 
 /**
  * Get a marketplace agent by ID
- * 
+ *
+ * @param agentId The ID of the agent
+ * @returns The marketplace agent or null if not found
+ */
+export async function getMarketplaceAgentById(agentId: string): Promise<MarketplaceAgent | null> {
+  return getMarketplaceAgent(agentId);
+}
+
+/**
+ * Get a marketplace agent by ID
+ *
  * @param agentId The ID of the agent
  * @returns The marketplace agent or null if not found
  */
 export async function getMarketplaceAgent(agentId: string): Promise<MarketplaceAgent | null> {
   const cacheKey = `marketplace:agent:${agentId}`;
-  
+
   return cache.getOrSet(cacheKey, async () => {
     try {
       const supabase = createBrowserSupabaseClient();
-      
+
       const { data, error } = await supabase
         .from('marketplace_agents')
         .select(`
@@ -243,12 +253,12 @@ export async function getMarketplaceAgent(agentId: string): Promise<MarketplaceA
         `)
         .eq('id', agentId)
         .single();
-      
+
       if (error) {
         console.error('Error fetching marketplace agent:', error);
         return null;
       }
-      
+
       return formatMarketplaceAgent(data);
     } catch (error) {
       console.error('Error fetching marketplace agent:', error);
@@ -259,7 +269,7 @@ export async function getMarketplaceAgent(agentId: string): Promise<MarketplaceA
 
 /**
  * Get reviews for a marketplace agent
- * 
+ *
  * @param agentId The ID of the agent
  * @param limit Maximum number of reviews to return
  * @param offset Offset for pagination
@@ -272,7 +282,7 @@ export async function getAgentReviews(
 ): Promise<{ reviews: MarketplaceReview[]; total: number }> {
   try {
     const supabase = createBrowserSupabaseClient();
-    
+
     const { data, error, count } = await supabase
       .from('marketplace_reviews')
       .select(`
@@ -282,12 +292,12 @@ export async function getAgentReviews(
       .eq('agent_id', agentId)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
-    
+
     if (error) {
       console.error('Error fetching agent reviews:', error);
       return { reviews: [], total: 0 };
     }
-    
+
     const reviews = data.map(review => ({
       id: review.id,
       agent_id: review.agent_id,
@@ -298,7 +308,7 @@ export async function getAgentReviews(
       comment: review.comment,
       created_at: review.created_at
     }));
-    
+
     return { reviews, total: count || 0 };
   } catch (error) {
     console.error('Error fetching agent reviews:', error);
@@ -308,7 +318,7 @@ export async function getAgentReviews(
 
 /**
  * Submit a review for a marketplace agent
- * 
+ *
  * @param agentId The ID of the agent
  * @param rating Rating (1-5)
  * @param comment Review comment
@@ -321,13 +331,13 @@ export async function submitAgentReview(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const supabase = createBrowserSupabaseClient();
-    
+
     // Check if the user is authenticated
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       return { success: false, error: 'You must be logged in to submit a review' };
     }
-    
+
     // Check if the user has already reviewed this agent
     const { data: existingReview, error: checkError } = await supabase
       .from('marketplace_reviews')
@@ -335,12 +345,12 @@ export async function submitAgentReview(
       .eq('agent_id', agentId)
       .eq('user_id', user.id)
       .single();
-    
+
     if (checkError && checkError.code !== 'PGRST116') { // PGRST116 is "no rows returned"
       console.error('Error checking existing review:', checkError);
       return { success: false, error: 'Failed to check existing reviews' };
     }
-    
+
     if (existingReview) {
       // Update existing review
       const { error: updateError } = await supabase
@@ -351,7 +361,7 @@ export async function submitAgentReview(
           updated_at: new Date().toISOString()
         })
         .eq('id', existingReview.id);
-      
+
       if (updateError) {
         console.error('Error updating review:', updateError);
         return { success: false, error: 'Failed to update review' };
@@ -366,16 +376,16 @@ export async function submitAgentReview(
           rating,
           comment
         });
-      
+
       if (insertError) {
         console.error('Error submitting review:', insertError);
         return { success: false, error: 'Failed to submit review' };
       }
     }
-    
+
     // Invalidate cache for this agent
     cache.delete(`marketplace:agent:${agentId}`);
-    
+
     return { success: true };
   } catch (error) {
     console.error('Error submitting review:', error);
@@ -385,7 +395,7 @@ export async function submitAgentReview(
 
 /**
  * Publish an agent to the marketplace
- * 
+ *
  * @param agentId The ID of the agent to publish
  * @param marketplaceData Additional marketplace data
  * @returns Whether the agent was published successfully
@@ -401,13 +411,13 @@ export async function publishAgentToMarketplace(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const supabase = createBrowserSupabaseClient();
-    
+
     // Check if the user is authenticated
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       return { success: false, error: 'You must be logged in to publish an agent' };
     }
-    
+
     // Get the agent
     const { data: agent, error: agentError } = await supabase
       .from('agents')
@@ -415,24 +425,24 @@ export async function publishAgentToMarketplace(
       .eq('id', agentId)
       .eq('user_id', user.id)
       .single();
-    
+
     if (agentError) {
       console.error('Error fetching agent:', agentError);
       return { success: false, error: 'Agent not found or you do not have permission to publish it' };
     }
-    
+
     // Check if the agent is already published
     const { data: existingListing, error: checkError } = await supabase
       .from('marketplace_agents')
       .select('id')
       .eq('agent_id', agentId)
       .single();
-    
+
     if (checkError && checkError.code !== 'PGRST116') { // PGRST116 is "no rows returned"
       console.error('Error checking existing listing:', checkError);
       return { success: false, error: 'Failed to check existing listings' };
     }
-    
+
     if (existingListing) {
       // Update existing listing
       const { error: updateError } = await supabase
@@ -449,7 +459,7 @@ export async function publishAgentToMarketplace(
           updated_at: new Date().toISOString()
         })
         .eq('id', existingListing.id);
-      
+
       if (updateError) {
         console.error('Error updating marketplace listing:', updateError);
         return { success: false, error: 'Failed to update marketplace listing' };
@@ -475,16 +485,16 @@ export async function publishAgentToMarketplace(
           downloads: 0,
           published_at: new Date().toISOString()
         });
-      
+
       if (insertError) {
         console.error('Error publishing agent to marketplace:', insertError);
         return { success: false, error: 'Failed to publish agent to marketplace' };
       }
     }
-    
+
     // Invalidate cache
     cache.delete('marketplace:featured:6');
-    
+
     return { success: true };
   } catch (error) {
     console.error('Error publishing agent to marketplace:', error);
@@ -494,7 +504,7 @@ export async function publishAgentToMarketplace(
 
 /**
  * Acquire an agent from the marketplace
- * 
+ *
  * @param marketplaceAgentId The ID of the marketplace agent
  * @returns Whether the agent was acquired successfully
  */
@@ -503,13 +513,13 @@ export async function acquireMarketplaceAgent(
 ): Promise<{ success: boolean; agentId?: string; error?: string }> {
   try {
     const supabase = createBrowserSupabaseClient();
-    
+
     // Check if the user is authenticated
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       return { success: false, error: 'You must be logged in to acquire an agent' };
     }
-    
+
     // Get the marketplace agent
     const { data: marketplaceAgent, error: agentError } = await supabase
       .from('marketplace_agents')
@@ -517,19 +527,19 @@ export async function acquireMarketplaceAgent(
       .eq('id', marketplaceAgentId)
       .eq('is_approved', true)
       .single();
-    
+
     if (agentError) {
       console.error('Error fetching marketplace agent:', agentError);
       return { success: false, error: 'Agent not found or not available for acquisition' };
     }
-    
+
     // Check if the agent is free or if payment is required
     if (marketplaceAgent.price > 0) {
       // In a real implementation, this would integrate with a payment processor
       // For now, we'll just simulate a successful payment
       console.log('Simulating payment for agent:', marketplaceAgent.price);
     }
-    
+
     // Create a copy of the agent for the user
     const { data: newAgent, error: createError } = await supabase
       .from('agents')
@@ -546,12 +556,12 @@ export async function acquireMarketplaceAgent(
       })
       .select()
       .single();
-    
+
     if (createError) {
       console.error('Error creating agent copy:', createError);
       return { success: false, error: 'Failed to create a copy of the agent' };
     }
-    
+
     // Record the acquisition
     const { error: acquisitionError } = await supabase
       .from('marketplace_acquisitions')
@@ -561,12 +571,12 @@ export async function acquireMarketplaceAgent(
         agent_id: newAgent.id,
         price_paid: marketplaceAgent.price
       });
-    
+
     if (acquisitionError) {
       console.error('Error recording acquisition:', acquisitionError);
       // Continue anyway, as the agent has been created
     }
-    
+
     // Increment the download count
     const { error: updateError } = await supabase
       .from('marketplace_agents')
@@ -574,16 +584,16 @@ export async function acquireMarketplaceAgent(
         downloads: marketplaceAgent.downloads + 1
       })
       .eq('id', marketplaceAgentId);
-    
+
     if (updateError) {
       console.error('Error updating download count:', updateError);
       // Continue anyway, as this is not critical
     }
-    
+
     // Invalidate cache
     cache.delete(`marketplace:agent:${marketplaceAgentId}`);
     cache.delete('marketplace:featured:6');
-    
+
     return { success: true, agentId: newAgent.id };
   } catch (error) {
     console.error('Error acquiring marketplace agent:', error);
@@ -593,22 +603,22 @@ export async function acquireMarketplaceAgent(
 
 /**
  * Get marketplace statistics
- * 
+ *
  * @returns Marketplace statistics
  */
 export async function getMarketplaceStats(): Promise<MarketplaceStats> {
   const cacheKey = 'marketplace:stats';
-  
+
   return cache.getOrSet(cacheKey, async () => {
     try {
       const supabase = createBrowserSupabaseClient();
-      
+
       // Get total agents
       const { count: totalAgents, error: agentsError } = await supabase
         .from('marketplace_agents')
         .select('*', { count: 'exact', head: true })
         .eq('is_approved', true);
-      
+
       if (agentsError) {
         console.error('Error fetching total agents:', agentsError);
         return {
@@ -618,13 +628,13 @@ export async function getMarketplaceStats(): Promise<MarketplaceStats> {
           top_categories: []
         };
       }
-      
+
       // Get total downloads
       const { data: downloadsData, error: downloadsError } = await supabase
         .from('marketplace_agents')
         .select('downloads')
         .eq('is_approved', true);
-      
+
       if (downloadsError) {
         console.error('Error fetching downloads:', downloadsError);
         return {
@@ -634,16 +644,16 @@ export async function getMarketplaceStats(): Promise<MarketplaceStats> {
           top_categories: []
         };
       }
-      
+
       const totalDownloads = downloadsData.reduce((sum, agent) => sum + agent.downloads, 0);
-      
+
       // Get featured agents count
       const { count: featuredAgents, error: featuredError } = await supabase
         .from('marketplace_agents')
         .select('*', { count: 'exact', head: true })
         .eq('is_approved', true)
         .eq('is_featured', true);
-      
+
       if (featuredError) {
         console.error('Error fetching featured agents:', featuredError);
         return {
@@ -653,14 +663,14 @@ export async function getMarketplaceStats(): Promise<MarketplaceStats> {
           top_categories: []
         };
       }
-      
+
       // Get top categories
       const { data: categories, error: categoriesError } = await supabase
         .from('marketplace_categories')
         .select('name, agent_count:marketplace_agents(count)')
         .order('agent_count', { ascending: false })
         .limit(5);
-      
+
       if (categoriesError) {
         console.error('Error fetching top categories:', categoriesError);
         return {
@@ -670,12 +680,12 @@ export async function getMarketplaceStats(): Promise<MarketplaceStats> {
           top_categories: []
         };
       }
-      
+
       const topCategories = categories.map(category => ({
         name: category.name,
         count: category.agent_count[0]?.count || 0
       }));
-      
+
       return {
         total_agents: totalAgents || 0,
         total_downloads: totalDownloads,
@@ -696,7 +706,7 @@ export async function getMarketplaceStats(): Promise<MarketplaceStats> {
 
 /**
  * Format a marketplace agent from the database
- * 
+ *
  * @param data Raw data from the database
  * @returns Formatted marketplace agent
  */

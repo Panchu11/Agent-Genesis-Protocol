@@ -7,7 +7,7 @@ import { generateChatResponse } from '../api/fireworks';
 
 /**
  * Agent Evolution Service
- * 
+ *
  * This service provides functions for evolving agents based on experiment results
  * and performance metrics.
  */
@@ -29,7 +29,7 @@ export interface EvolutionOptions {
 
 /**
  * Evolve an agent based on experiment results
- * 
+ *
  * @param agentId The ID of the agent to evolve
  * @param experimentId The ID of the experiment to use for evolution
  * @param options Evolution options
@@ -44,27 +44,27 @@ export async function evolveAgentFromExperiment(
     // Get the agent
     const agent = await getAgentById(agentId);
     if (!agent) {
-      return { 
-        success: false, 
-        error: 'Agent not found' 
+      return {
+        success: false,
+        error: 'Agent not found'
       };
     }
 
     // Get experiment runs for this agent
     const runs = await getExperimentRuns(experimentId, agentId);
     if (runs.length === 0) {
-      return { 
-        success: false, 
-        error: 'No experiment runs found for this agent' 
+      return {
+        success: false,
+        error: 'No experiment runs found for this agent'
       };
     }
 
     // Get the most recent completed run
     const completedRuns = runs.filter(run => run.status === 'completed');
     if (completedRuns.length === 0) {
-      return { 
-        success: false, 
-        error: 'No completed experiment runs found for this agent' 
+      return {
+        success: false,
+        error: 'No completed experiment runs found for this agent'
       };
     }
 
@@ -76,18 +76,18 @@ export async function evolveAgentFromExperiment(
 
     const latestRun = completedRuns[0];
     if (!latestRun.results) {
-      return { 
-        success: false, 
-        error: 'No results found for the latest experiment run' 
+      return {
+        success: false,
+        error: 'No results found for the latest experiment run'
       };
     }
 
     // Extract metrics from the run results
     const metrics = latestRun.results.metrics || {};
-    
+
     // Determine areas for improvement
     const improvementAreas = determineImprovementAreas(metrics, options.targetMetrics);
-    
+
     // Generate evolution suggestions using AI
     const evolutionSuggestions = await generateEvolutionSuggestions(
       agent,
@@ -97,9 +97,9 @@ export async function evolveAgentFromExperiment(
     );
 
     if (!evolutionSuggestions.success) {
-      return { 
-        success: false, 
-        error: evolutionSuggestions.error 
+      return {
+        success: false,
+        error: evolutionSuggestions.error
       };
     }
 
@@ -139,7 +139,7 @@ export async function evolveAgentFromExperiment(
 
 /**
  * Determine which areas of the agent need improvement based on metrics
- * 
+ *
  * @param metrics The metrics from the experiment run
  * @param targetMetrics Optional specific metrics to target for improvement
  * @returns Array of areas that need improvement
@@ -149,12 +149,12 @@ function determineImprovementAreas(
   targetMetrics?: string[]
 ): string[] {
   const improvementAreas: string[] = [];
-  
+
   // If specific metrics are targeted, focus on those
   if (targetMetrics && targetMetrics.length > 0) {
     return targetMetrics;
   }
-  
+
   // Otherwise, identify metrics below threshold
   const thresholds: Record<string, number> = {
     accuracy: 80,
@@ -163,7 +163,7 @@ function determineImprovementAreas(
     helpfulness: 75,
     reasoning: 75
   };
-  
+
   for (const [metric, value] of Object.entries(metrics)) {
     const threshold = thresholds[metric as keyof typeof thresholds];
     if (threshold) {
@@ -180,13 +180,13 @@ function determineImprovementAreas(
       }
     }
   }
-  
+
   return improvementAreas;
 }
 
 /**
  * Generate evolution suggestions using AI
- * 
+ *
  * @param agent The agent to evolve
  * @param metrics The metrics from the experiment run
  * @param improvementAreas Areas that need improvement
@@ -209,7 +209,7 @@ async function generateEvolutionSuggestions(
     // Create a prompt for the AI to suggest improvements
     const strengthLevel = options.evolutionStrength || 'moderate';
     const preservePersonality = options.preservePersonality !== false;
-    
+
     const prompt = `
 You are an AI agent evolution specialist. Your task is to suggest improvements to an agent based on its performance metrics.
 
@@ -235,7 +235,7 @@ Evolution Parameters:
 - Preserve Core Personality: ${preservePersonality ? 'Yes' : 'No'}
 ${options.focusAreas ? `- Focus Areas: ${options.focusAreas.join(', ')}` : ''}
 
-Please suggest specific improvements to the agent's personality and capabilities to address the identified areas for improvement. 
+Please suggest specific improvements to the agent's personality and capabilities to address the identified areas for improvement.
 The changes should be ${strengthLevel} in nature.
 ${preservePersonality ? 'Maintain the core personality traits of the agent while making improvements.' : 'Feel free to significantly alter the personality if needed.'}
 
@@ -262,13 +262,13 @@ Provide your response in the following JSON format:
     // Parse the JSON response
     try {
       // Extract JSON from the response
-      const jsonMatch = response.match(/```json\n([\s\S]*?)\n```/) || 
-                        response.match(/```\n([\s\S]*?)\n```/) || 
+      const jsonMatch = response.match(/```json\n([\s\S]*?)\n```/) ||
+                        response.match(/```\n([\s\S]*?)\n```/) ||
                         response.match(/({[\s\S]*})/);
-      
+
       const jsonString = jsonMatch ? jsonMatch[1] : response;
       const suggestions = JSON.parse(jsonString);
-      
+
       return {
         success: true,
         personality: suggestions.personality,
@@ -293,7 +293,7 @@ Provide your response in the following JSON format:
 
 /**
  * Apply evolution suggestions to create a new version of the agent
- * 
+ *
  * @param agent The original agent
  * @param personalitySuggestions Suggested changes to personality
  * @param capabilitiesSuggestions Suggested changes to capabilities
@@ -308,7 +308,7 @@ function applyEvolutionSuggestions(
 ): StoredAgent {
   // Create a deep copy of the agent
   const evolvedAgent = JSON.parse(JSON.stringify(agent)) as StoredAgent;
-  
+
   // Apply personality changes
   if (personalitySuggestions && Object.keys(personalitySuggestions).length > 0) {
     if (options.preservePersonality !== false) {
@@ -322,7 +322,7 @@ function applyEvolutionSuggestions(
       evolvedAgent.personality = personalitySuggestions;
     }
   }
-  
+
   // Apply capabilities changes
   if (capabilitiesSuggestions && Object.keys(capabilitiesSuggestions).length > 0) {
     evolvedAgent.capabilities = {
@@ -330,16 +330,16 @@ function applyEvolutionSuggestions(
       ...capabilitiesSuggestions
     };
   }
-  
+
   // Increment the version number
   evolvedAgent.version = (evolvedAgent.version || 1) + 1;
-  
+
   return evolvedAgent;
 }
 
 /**
  * Evolve an agent by merging traits from two parent agents
- * 
+ *
  * @param parentAgentId1 The ID of the first parent agent
  * @param parentAgentId2 The ID of the second parent agent
  * @param options Evolution options
@@ -361,57 +361,57 @@ export async function evolveAgentByMerging(
     // Get the parent agents
     const parent1 = await getAgentById(parentAgentId1);
     const parent2 = await getAgentById(parentAgentId2);
-    
+
     if (!parent1 || !parent2) {
-      return { 
-        success: false, 
-        error: 'One or both parent agents not found' 
+      return {
+        success: false,
+        error: 'One or both parent agents not found'
       };
     }
-    
+
     // Determine the dominant parent for trait inheritance
     const dominance = options.dominantParent || 'balanced';
-    const dominanceRatio = dominance === 'first' ? 0.7 : 
+    const dominanceRatio = dominance === 'first' ? 0.7 :
                            dominance === 'second' ? 0.3 : 0.5;
-    
+
     // Merge personality traits
     const mergedPersonality = mergeTraits(
       parent1.personality,
       parent2.personality,
       dominanceRatio
     );
-    
+
     // Merge capabilities
     const mergedCapabilities = mergeTraits(
       parent1.capabilities,
       parent2.capabilities,
       dominanceRatio
     );
-    
+
     // Create the new agent
     const supabase = createBrowserSupabaseClient();
     const { data: { user } } = await supabase.auth.getUser();
-    
+
     if (!user) {
       return {
         success: false,
         error: 'User not authenticated'
       };
     }
-    
+
     // Generate a name if not provided
     const name = options.name || `${parent1.name} × ${parent2.name}`;
-    
+
     // Generate a description if not provided
-    const description = options.description || 
+    const description = options.description ||
       `Evolved agent created by merging ${parent1.name} and ${parent2.name}`;
-    
+
     // Use provided archetype or inherit from dominant parent
-    const archetype = options.archetype || 
-      (dominance === 'first' ? parent1.archetype : 
-       dominance === 'second' ? parent2.archetype : 
+    const archetype = options.archetype ||
+      (dominance === 'first' ? parent1.archetype :
+       dominance === 'second' ? parent2.archetype :
        (parent1.archetype === parent2.archetype ? parent1.archetype : 'Hybrid'));
-    
+
     // Insert the new agent
     const { data: newAgent, error } = await supabase
       .from('agents')
@@ -427,11 +427,11 @@ export async function evolveAgentByMerging(
       })
       .select()
       .single();
-    
+
     if (error) {
       throw error;
     }
-    
+
     return {
       success: true,
       newAgent: newAgent as StoredAgent,
@@ -451,7 +451,7 @@ export async function evolveAgentByMerging(
 
 /**
  * Merge traits from two objects with a given dominance ratio
- * 
+ *
  * @param traits1 Traits from the first object
  * @param traits2 Traits from the second object
  * @param dominanceRatio Ratio of traits to inherit from the first object (0-1)
@@ -463,20 +463,20 @@ function mergeTraits(
   dominanceRatio: number
 ): Record<string, any> {
   const result: Record<string, any> = {};
-  
+
   // Get all unique keys from both objects
   const allKeys = new Set([
     ...Object.keys(traits1),
     ...Object.keys(traits2)
   ]);
-  
+
   // Process each key
   for (const key of allKeys) {
     // If the key exists in both objects
     if (key in traits1 && key in traits2) {
       const value1 = traits1[key];
       const value2 = traits2[key];
-      
+
       // If both values are objects, recursively merge them
       if (
         typeof value1 === 'object' && value1 !== null && !Array.isArray(value1) &&
@@ -489,10 +489,10 @@ function mergeTraits(
         // Take items from both arrays based on dominance ratio
         const numItemsFromFirst = Math.round(value1.length * dominanceRatio);
         const numItemsFromSecond = Math.round(value2.length * (1 - dominanceRatio));
-        
+
         const itemsFromFirst = value1.slice(0, numItemsFromFirst);
         const itemsFromSecond = value2.slice(0, numItemsFromSecond);
-        
+
         result[key] = [...itemsFromFirst, ...itemsFromSecond];
       }
       // If both values are numbers, calculate weighted average
@@ -519,31 +519,41 @@ function mergeTraits(
       }
     }
   }
-  
+
   return result;
 }
 
 /**
  * Get the version history of an agent
- * 
+ *
+ * @param agentId The ID of the agent
+ * @returns Array of agent versions
+ */
+export async function getAgentVersions(agentId: string): Promise<any[]> {
+  return getAgentVersionHistory(agentId);
+}
+
+/**
+ * Get the version history of an agent
+ *
  * @param agentId The ID of the agent
  * @returns Array of agent versions
  */
 export async function getAgentVersionHistory(agentId: string): Promise<any[]> {
   try {
     const supabase = createBrowserSupabaseClient();
-    
+
     // Get all versions of the agent
     const { data, error } = await supabase
       .from('agent_versions')
       .select('*')
       .eq('agent_id', agentId)
       .order('version', { ascending: false });
-    
+
     if (error) {
       throw error;
     }
-    
+
     return data || [];
   } catch (error) {
     console.error('Error getting agent version history:', error);
@@ -553,7 +563,7 @@ export async function getAgentVersionHistory(agentId: string): Promise<any[]> {
 
 /**
  * Revert an agent to a previous version
- * 
+ *
  * @param agentId The ID of the agent
  * @param versionNumber The version number to revert to
  * @returns The evolution result
@@ -566,12 +576,12 @@ export async function revertAgentToVersion(
     // Get the current agent
     const currentAgent = await getAgentById(agentId);
     if (!currentAgent) {
-      return { 
-        success: false, 
-        error: 'Agent not found' 
+      return {
+        success: false,
+        error: 'Agent not found'
       };
     }
-    
+
     // Get the specified version
     const supabase = createBrowserSupabaseClient();
     const { data: versionData, error: versionError } = await supabase
@@ -580,14 +590,14 @@ export async function revertAgentToVersion(
       .eq('agent_id', agentId)
       .eq('version', versionNumber)
       .single();
-    
+
     if (versionError || !versionData) {
-      return { 
-        success: false, 
-        error: `Version ${versionNumber} not found` 
+      return {
+        success: false,
+        error: `Version ${versionNumber} not found`
       };
     }
-    
+
     // Update the agent with the version data
     const updatedAgent = await updateAgent(
       agentId,
@@ -598,7 +608,7 @@ export async function revertAgentToVersion(
       versionData.capabilities,
       currentAgent.is_public
     );
-    
+
     return {
       success: true,
       newAgent: updatedAgent,
