@@ -4,10 +4,10 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { createBrowserSupabaseClient } from '@/app/lib/db/supabase';
 import { getAllAgents, StoredAgent } from '@/app/lib/db/agentStorage';
-import { getAgentMetrics, AgentMetric } from '@/app/lib/db/experiments';
+import { AgentMetric } from '@/app/lib/db/experiments';
 import { Button } from '@/app/components/common/Button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/app/components/common/Card';
-import LazyMetricsChart from '@/app/components/evolution/LazyMetricsChart';
+import AgentComparisonChart from '@/app/components/evolution/AgentComparisonChart';
 
 export default function CompareAgentsPage() {
   const [agents, setAgents] = useState<StoredAgent[]>([]);
@@ -274,47 +274,36 @@ export default function CompareAgentsPage() {
 
             <div className="mt-6">
               <h3 className="text-lg font-medium mb-2">Performance Visualization</h3>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                {selectedAgents.length > 0 ? (
-                  <LazyMetricsChart
-                    type="radar"
-                    height={350}
-                    data={{
-                      labels: ['Accuracy', 'Response Time', 'Creativity', 'Helpfulness', 'Reasoning'],
-                      datasets: selectedAgents.map((agentId) => {
-                        const agent = getAgentById(agentId);
-                        // Generate a random color for each agent
-                        const r = Math.floor(Math.random() * 200);
-                        const g = Math.floor(Math.random() * 200);
-                        const b = Math.floor(Math.random() * 200);
-                        const backgroundColor = `rgba(${r}, ${g}, ${b}, 0.2)`;
-                        const borderColor = `rgba(${r}, ${g}, ${b}, 1)`;
+              {selectedAgents.length > 0 ? (
+                <AgentComparisonChart
+                  agents={selectedAgents.map(agentId => {
+                    const agent = getAgentById(agentId);
+                    if (!agent) return null;
 
-                        return {
-                          label: agent?.name || 'Unknown Agent',
-                          data: [
-                            parseFloat(getAverageMetric(agentId, 'accuracy')) || 0,
-                            // For response time, we invert the value (lower is better)
-                            100 - (parseFloat(getAverageMetric(agentId, 'response_time')) / 25) || 0,
-                            parseFloat(getAverageMetric(agentId, 'creativity')) || 0,
-                            parseFloat(getAverageMetric(agentId, 'helpfulness')) || 0,
-                            parseFloat(getAverageMetric(agentId, 'reasoning')) || 0,
-                          ],
-                          backgroundColor,
-                          borderColor,
-                          borderWidth: 2,
-                        };
-                      }),
-                    }}
-                  />
-                ) : (
-                  <div className="h-64 flex items-center justify-center">
-                    <p className="text-gray-500">
-                      Select agents to view performance visualization.
-                    </p>
-                  </div>
-                )}
-              </div>
+                    // Prepare metrics for the agent
+                    const metricValues: Record<string, number> = {
+                      'Accuracy': parseFloat(getAverageMetric(agentId, 'accuracy')) || 0,
+                      'Response Time': 100 - (parseFloat(getAverageMetric(agentId, 'response_time')) / 25) || 0,
+                      'Creativity': parseFloat(getAverageMetric(agentId, 'creativity')) || 0,
+                      'Helpfulness': parseFloat(getAverageMetric(agentId, 'helpfulness')) || 0,
+                      'Reasoning': parseFloat(getAverageMetric(agentId, 'reasoning')) || 0,
+                    };
+
+                    return {
+                      agent,
+                      metrics: metricValues
+                    };
+                  }).filter(Boolean) as { agent: StoredAgent; metrics: Record<string, number> }[]}
+                  title="Agent Performance Comparison"
+                  description="Compare performance metrics across selected agents"
+                />
+              ) : (
+                <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg">
+                  <p className="text-gray-500">
+                    Select agents to view performance visualization.
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="mt-6">
