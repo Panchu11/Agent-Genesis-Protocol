@@ -7,6 +7,7 @@ import { getAllAgents, StoredAgent } from '@/app/lib/db/agentStorage';
 import { getAgentMetrics, AgentMetric } from '@/app/lib/db/experiments';
 import { Button } from '@/app/components/common/Button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/app/components/common/Card';
+import MetricsChart from '@/app/components/evolution/MetricsChart';
 
 export default function CompareAgentsPage() {
   const [agents, setAgents] = useState<StoredAgent[]>([]);
@@ -23,7 +24,7 @@ export default function CompareAgentsPage() {
       const supabase = createBrowserSupabaseClient();
       const { data: { user } } = await supabase.auth.getUser();
       setUserId(user?.id || null);
-      
+
       if (user) {
         // Load agents
         try {
@@ -39,7 +40,7 @@ export default function CompareAgentsPage() {
         setIsLoading(false);
       }
     };
-    
+
     initialize();
   }, []);
 
@@ -56,19 +57,19 @@ export default function CompareAgentsPage() {
       setError('Please select at least two agents to compare');
       return;
     }
-    
+
     setIsComparing(true);
     setError(null);
-    
+
     try {
       const metricsData: Record<string, AgentMetric[]> = {};
-      
+
       for (const agentId of selectedAgents) {
         // For now, generate simulated metrics
         const simulatedMetrics = generateSimulatedMetrics(agentId);
         metricsData[agentId] = simulatedMetrics;
       }
-      
+
       setMetrics(metricsData);
     } catch (err) {
       console.error('Error fetching agent metrics:', err);
@@ -82,20 +83,20 @@ export default function CompareAgentsPage() {
   const generateSimulatedMetrics = (agentId: string): AgentMetric[] => {
     const metricTypes = ['accuracy', 'response_time', 'creativity', 'helpfulness', 'reasoning'];
     const metrics: AgentMetric[] = [];
-    
+
     for (const type of metricTypes) {
       // Generate 3-5 metrics of each type
       const count = Math.floor(Math.random() * 3) + 3;
-      
+
       for (let i = 0; i < count; i++) {
         // Generate a random value between 0 and 100
         let value = Math.random() * 100;
-        
+
         // For response_time, use a different range (lower is better)
         if (type === 'response_time') {
           value = Math.random() * 2000 + 500; // 500-2500ms
         }
-        
+
         metrics.push({
           id: `metric-${agentId}-${type}-${i}`,
           agent_id: agentId,
@@ -107,7 +108,7 @@ export default function CompareAgentsPage() {
         });
       }
     }
-    
+
     return metrics;
   };
 
@@ -120,11 +121,11 @@ export default function CompareAgentsPage() {
   const getAverageMetric = (agentId: string, metricType: string) => {
     const agentMetrics = metrics[agentId] || [];
     const typeMetrics = agentMetrics.filter(metric => metric.metric_type === metricType);
-    
+
     if (typeMetrics.length === 0) {
       return 'N/A';
     }
-    
+
     const sum = typeMetrics.reduce((acc, metric) => acc + metric.value, 0);
     return (sum / typeMetrics.length).toFixed(2);
   };
@@ -213,8 +214,8 @@ export default function CompareAgentsPage() {
           )}
         </CardContent>
         <CardFooter>
-          <Button 
-            onClick={handleCompare} 
+          <Button
+            onClick={handleCompare}
             disabled={selectedAgents.length < 2 || isComparing}
             className="w-full"
           >
@@ -260,7 +261,7 @@ export default function CompareAgentsPage() {
                 </tbody>
               </table>
             </div>
-            
+
             <div className="mt-6">
               <h3 className="text-lg font-medium mb-2">Interpretation</h3>
               <p className="text-gray-700">
@@ -270,30 +271,64 @@ export default function CompareAgentsPage() {
                 Note: If an agent doesn't have data for a particular metric, it will show as "N/A".
               </p>
             </div>
-            
+
             <div className="mt-6">
               <h3 className="text-lg font-medium mb-2">Performance Visualization</h3>
               <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="h-64 flex items-center justify-center">
-                  <p className="text-gray-500">
-                    Radar chart visualization would be displayed here, showing the relative performance of each agent across all metrics.
-                  </p>
-                </div>
+                {selectedAgents.length > 0 ? (
+                  <MetricsChart
+                    type="radar"
+                    height={350}
+                    data={{
+                      labels: ['Accuracy', 'Response Time', 'Creativity', 'Helpfulness', 'Reasoning'],
+                      datasets: selectedAgents.map((agentId) => {
+                        const agent = getAgentById(agentId);
+                        // Generate a random color for each agent
+                        const r = Math.floor(Math.random() * 200);
+                        const g = Math.floor(Math.random() * 200);
+                        const b = Math.floor(Math.random() * 200);
+                        const backgroundColor = `rgba(${r}, ${g}, ${b}, 0.2)`;
+                        const borderColor = `rgba(${r}, ${g}, ${b}, 1)`;
+
+                        return {
+                          label: agent?.name || 'Unknown Agent',
+                          data: [
+                            parseFloat(getAverageMetric(agentId, 'accuracy')) || 0,
+                            // For response time, we invert the value (lower is better)
+                            100 - (parseFloat(getAverageMetric(agentId, 'response_time')) / 25) || 0,
+                            parseFloat(getAverageMetric(agentId, 'creativity')) || 0,
+                            parseFloat(getAverageMetric(agentId, 'helpfulness')) || 0,
+                            parseFloat(getAverageMetric(agentId, 'reasoning')) || 0,
+                          ],
+                          backgroundColor,
+                          borderColor,
+                          borderWidth: 2,
+                        };
+                      }),
+                    }}
+                  />
+                ) : (
+                  <div className="h-64 flex items-center justify-center">
+                    <p className="text-gray-500">
+                      Select agents to view performance visualization.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
-            
+
             <div className="mt-6">
               <h3 className="text-lg font-medium mb-2">Detailed Analysis</h3>
               <div className="space-y-4">
                 {selectedAgents.map((agentId) => {
                   const agent = getAgentById(agentId);
                   if (!agent) return null;
-                  
+
                   return (
                     <div key={agentId} className="border rounded-md p-4">
                       <h4 className="font-medium mb-2">{agent.name}</h4>
                       <p className="text-sm text-gray-600 mb-3">{agent.archetype}</p>
-                      
+
                       <div className="grid grid-cols-2 gap-3">
                         {['accuracy', 'response_time', 'creativity', 'helpfulness', 'reasoning'].map((metricType) => {
                           const value = getAverageMetric(agentId, metricType);

@@ -3,10 +3,11 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { createBrowserSupabaseClient } from '@/app/lib/db/supabase';
-import { getSocialFeed, getPostInteractions, createSocialInteraction, SocialPost, SocialInteraction } from '@/app/lib/db/socialFeed';
-import { getAllAgents, StoredAgent } from '@/app/lib/db/agentStorage';
+import { getSocialFeed, getSocialPostById, getPostInteractions, createSocialInteraction, SocialPost, SocialInteraction } from '@/app/lib/db/socialFeed';
+import { getAllAgents, getAgentById, StoredAgent } from '@/app/lib/db/agentStorage';
 import { Button } from '@/app/components/common/Button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/app/components/common/Card';
+import { useNotification } from '@/app/context/NotificationContext';
 
 interface PostWithInteractions extends SocialPost {
   interactions?: SocialInteraction[];
@@ -14,6 +15,7 @@ interface PostWithInteractions extends SocialPost {
 }
 
 export default function FeedPage() {
+  const { showNotification } = useNotification();
   const [posts, setPosts] = useState<PostWithInteractions[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -46,6 +48,98 @@ export default function FeedPage() {
 
         // Load social feed
         await loadFeed();
+
+        // Set up real-time subscription for new posts
+        const postsSubscription = supabase
+          .channel('public:social_posts')
+          .on('postgres_changes', {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'social_posts'
+          }, async (payload) => {
+            console.log('New post received:', payload);
+            // Fetch the complete post with agent details
+            const newPost = await getSocialPostById(payload.new.id);
+            if (newPost) {
+              setPosts(prevPosts => [{
+                ...newPost,
+                interactions: [],
+                showComments: false
+              }, ...prevPosts]);
+
+              // Show notification for new post
+              showNotification({
+                id: `new-post-${newPost.id}`,
+                title: 'New Post',
+                message: `${newPost.agent?.name || 'An agent'} just posted something new!`,
+                type: 'info',
+                duration: 5000
+              });
+            }
+          })
+          .subscribe();
+
+        // Set up real-time subscription for new interactions
+        const interactionsSubscription = supabase
+          .channel('public:social_interactions')
+          .on('postgres_changes', {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'social_interactions'
+          }, async (payload) => {
+            console.log('New interaction received:', payload);
+            const postId = payload.new.post_id;
+
+            // Fetch the agent details
+            const agent = await getAgentById(payload.new.agent_id);
+
+            // Update the post with the new interaction
+            setPosts(prevPosts =>
+              prevPosts.map(post => {
+                if (post.id === postId) {
+                  const newInteraction = {
+                    ...payload.new,
+                    agent: agent ? {
+                      name: agent.name,
+                      archetype: agent.archetype
+                    } : undefined
+                  };
+
+                  // Show notification for new interaction
+                  if (payload.new.interaction_type === 'comment') {
+                    showNotification({
+                      id: `new-comment-${payload.new.id}`,
+                      title: 'New Comment',
+                      message: `${agent?.name || 'An agent'} commented on a post`,
+                      type: 'info',
+                      duration: 5000
+                    });
+                  } else if (payload.new.interaction_type === 'like') {
+                    showNotification({
+                      id: `new-like-${payload.new.id}`,
+                      title: 'New Like',
+                      message: `${agent?.name || 'An agent'} liked a post`,
+                      type: 'info',
+                      duration: 3000
+                    });
+                  }
+
+                  return {
+                    ...post,
+                    interactions: [...(post.interactions || []), newInteraction]
+                  };
+                }
+                return post;
+              })
+            );
+          })
+          .subscribe();
+
+        // Clean up subscriptions on unmount
+        return () => {
+          supabase.removeChannel(postsSubscription);
+          supabase.removeChannel(interactionsSubscription);
+        };
       } catch (error) {
         console.error('Error initializing feed:', error);
         setError('Failed to load feed');

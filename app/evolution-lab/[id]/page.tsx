@@ -4,8 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { createBrowserSupabaseClient } from '@/app/lib/db/supabase';
-import { 
-  getExperimentById, 
+import {
+  getExperimentById,
   getExperimentRuns,
   createExperimentRun,
   updateExperiment,
@@ -16,19 +16,21 @@ import {
 import { getAgentById } from '@/app/lib/db/agentStorage';
 import { Button } from '@/app/components/common/Button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/app/components/common/Card';
+import { useNotification } from '@/app/context/NotificationContext';
 
 export default function ExperimentDetailPage() {
   const router = useRouter();
   const params = useParams();
   const experimentId = params.id as string;
-  
+  const { showNotification } = useNotification();
+
   const [experiment, setExperiment] = useState<Experiment | null>(null);
   const [runs, setRuns] = useState<ExperimentRun[]>([]);
   const [agents, setAgents] = useState<Record<string, any>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
-  
+
   // UI state
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState('');
@@ -45,7 +47,7 @@ export default function ExperimentDetailPage() {
       const { data: { user } } = await supabase.auth.getUser();
       setUserId(user?.id || null);
     };
-    
+
     getUser();
   }, []);
 
@@ -54,37 +56,104 @@ export default function ExperimentDetailPage() {
     const loadExperimentData = async () => {
       setIsLoading(true);
       setError(null);
-      
+
       try {
+        const supabase = createBrowserSupabaseClient();
+
         // Get experiment details
         const experimentData = await getExperimentById(experimentId);
-        
+
         if (!experimentData) {
           setError('Experiment not found');
           setIsLoading(false);
           return;
         }
-        
+
         setExperiment(experimentData);
         setName(experimentData.name);
         setDescription(experimentData.description || '');
         setIsPublic(experimentData.is_public);
-        
+
         // Get experiment runs
         const runsData = await getExperimentRuns(experimentId);
         setRuns(runsData);
-        
+
         // Get agent details for each agent in the experiment
         const agentDetails: Record<string, any> = {};
-        
+
         for (const agentId of experimentData.configuration.agents) {
           const agent = await getAgentById(agentId);
           if (agent) {
             agentDetails[agentId] = agent;
           }
         }
-        
+
         setAgents(agentDetails);
+
+        // Set up real-time subscription for experiment runs
+        const runsSubscription = supabase
+          .channel(`experiment-runs-${experimentId}`)
+          .on('postgres_changes', {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'experiment_runs',
+            filter: `experiment_id=eq.${experimentId}`
+          }, (payload) => {
+            console.log('New run received:', payload);
+            // Add the new run to the runs list
+            setRuns(prevRuns => [payload.new, ...prevRuns]);
+
+            // Show notification
+            const agent = agents[payload.new.agent_id];
+            showNotification({
+              id: `new-run-${payload.new.id}`,
+              title: 'New Experiment Run',
+              message: `A new run has been started for agent ${agent?.name || 'Unknown'}`,
+              type: 'info',
+              duration: 5000
+            });
+          })
+          .on('postgres_changes', {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'experiment_runs',
+            filter: `experiment_id=eq.${experimentId}`
+          }, (payload) => {
+            console.log('Run updated:', payload);
+            // Update the run in the runs list
+            setRuns(prevRuns =>
+              prevRuns.map(run =>
+                run.id === payload.new.id ? payload.new : run
+              )
+            );
+
+            // Show notification if status changed to completed
+            if (payload.new.status === 'completed') {
+              const agent = agents[payload.new.agent_id];
+              showNotification({
+                id: `run-completed-${payload.new.id}`,
+                title: 'Experiment Run Completed',
+                message: `The run for agent ${agent?.name || 'Unknown'} has been completed`,
+                type: 'success',
+                duration: 5000
+              });
+            } else if (payload.new.status === 'failed') {
+              const agent = agents[payload.new.agent_id];
+              showNotification({
+                id: `run-failed-${payload.new.id}`,
+                title: 'Experiment Run Failed',
+                message: `The run for agent ${agent?.name || 'Unknown'} has failed`,
+                type: 'error',
+                duration: 5000
+              });
+            }
+          })
+          .subscribe();
+
+        // Clean up subscription on unmount
+        return () => {
+          supabase.removeChannel(runsSubscription);
+        };
       } catch (err) {
         console.error('Error loading experiment data:', err);
         setError('Failed to load experiment');
@@ -92,23 +161,23 @@ export default function ExperimentDetailPage() {
         setIsLoading(false);
       }
     };
-    
+
     loadExperimentData();
   }, [experimentId]);
 
   // Handle experiment update
   const handleUpdateExperiment = async () => {
     if (!experiment || !userId) return;
-    
+
     setIsSaving(true);
-    
+
     try {
       const updatedExperiment = await updateExperiment(experimentId, {
         name,
         description,
         is_public: isPublic
       });
-      
+
       if (updatedExperiment) {
         setExperiment(updatedExperiment);
         setIsEditing(false);
@@ -126,16 +195,16 @@ export default function ExperimentDetailPage() {
   // Handle experiment deletion
   const handleDeleteExperiment = async () => {
     if (!experiment || !userId) return;
-    
+
     if (!confirm('Are you sure you want to delete this experiment? This action cannot be undone.')) {
       return;
     }
-    
+
     setIsDeleting(true);
-    
+
     try {
       const success = await deleteExperiment(experimentId);
-      
+
       if (success) {
         router.push('/evolution-lab');
       } else {
@@ -152,16 +221,16 @@ export default function ExperimentDetailPage() {
   // Start a new experiment run
   const handleStartRun = async (agentId: string) => {
     if (!experiment || !userId) return;
-    
+
     setIsStartingRun(true);
-    
+
     try {
       const newRun = await createExperimentRun(experimentId, agentId);
-      
+
       if (newRun) {
         // Add the new run to the runs list
         setRuns([newRun, ...runs]);
-        
+
         // Simulate run progress (in a real app, this would be handled by a backend process)
         simulateRunProgress(newRun.id);
       } else {
@@ -178,20 +247,20 @@ export default function ExperimentDetailPage() {
   // Simulate run progress (for demo purposes)
   const simulateRunProgress = (runId: string) => {
     // Update run status to 'running'
-    setRuns(prevRuns => 
-      prevRuns.map(run => 
+    setRuns(prevRuns =>
+      prevRuns.map(run =>
         run.id === runId ? { ...run, status: 'running', started_at: new Date().toISOString() } : run
       )
     );
-    
+
     // After a delay, update to 'completed'
     setTimeout(() => {
-      setRuns(prevRuns => 
+      setRuns(prevRuns =>
         prevRuns.map(run => {
           if (run.id === runId) {
-            return { 
-              ...run, 
-              status: 'completed', 
+            return {
+              ...run,
+              status: 'completed',
               completed_at: new Date().toISOString(),
               results: {
                 metrics: {
@@ -316,7 +385,7 @@ export default function ExperimentDetailPage() {
                 required
               />
             </div>
-            
+
             <div className="space-y-2">
               <label htmlFor="description" className="block text-sm font-medium text-gray-700">
                 Description
@@ -328,7 +397,7 @@ export default function ExperimentDetailPage() {
                 className="w-full rounded-md border border-gray-300 p-2 min-h-[100px]"
               />
             </div>
-            
+
             <div className="flex items-center space-x-2">
               <input
                 type="checkbox"
@@ -344,8 +413,8 @@ export default function ExperimentDetailPage() {
           </CardContent>
           <CardFooter className="flex justify-between">
             <div>
-              <Button 
-                variant="destructive" 
+              <Button
+                variant="destructive"
                 onClick={handleDeleteExperiment}
                 disabled={isDeleting}
               >
@@ -353,8 +422,8 @@ export default function ExperimentDetailPage() {
               </Button>
             </div>
             <div className="flex space-x-2">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => {
                   setIsEditing(false);
                   setName(experiment.name);
@@ -365,7 +434,7 @@ export default function ExperimentDetailPage() {
               >
                 Cancel
               </Button>
-              <Button 
+              <Button
                 onClick={handleUpdateExperiment}
                 disabled={isSaving || !name.trim()}
               >
@@ -407,7 +476,7 @@ export default function ExperimentDetailPage() {
                   </div>
                 </CardContent>
               </Card>
-              
+
               <Card className="mt-6">
                 <CardHeader>
                   <CardTitle>Agents</CardTitle>
@@ -419,7 +488,7 @@ export default function ExperimentDetailPage() {
                   <div className="space-y-3">
                     {experiment.configuration.agents.map((agentId) => {
                       const agent = agents[agentId];
-                      
+
                       return (
                         <div key={agentId} className="flex justify-between items-center p-3 border rounded-md">
                           <div>
@@ -427,8 +496,8 @@ export default function ExperimentDetailPage() {
                             <div className="text-xs text-gray-500">{agent?.archetype || 'Unknown Type'}</div>
                           </div>
                           {isOwner && (
-                            <Button 
-                              size="sm" 
+                            <Button
+                              size="sm"
                               variant="outline"
                               onClick={() => handleStartRun(agentId)}
                               disabled={isStartingRun}
@@ -443,7 +512,7 @@ export default function ExperimentDetailPage() {
                 </CardContent>
               </Card>
             </div>
-            
+
             <div className="md:col-span-2">
               <Card>
                 <CardHeader>
@@ -463,7 +532,7 @@ export default function ExperimentDetailPage() {
                     <div className="space-y-4">
                       {runs.map((run) => {
                         const agent = agents[run.agent_id];
-                        
+
                         return (
                           <div key={run.id} className="border rounded-md overflow-hidden">
                             <div className="flex justify-between items-center p-4 bg-gray-50">
@@ -487,7 +556,7 @@ export default function ExperimentDetailPage() {
                                 </Link>
                               </div>
                             </div>
-                            
+
                             {run.status === 'completed' && run.results && (
                               <div className="p-4 border-t">
                                 <h4 className="text-sm font-medium mb-2">Results Summary</h4>
@@ -510,7 +579,7 @@ export default function ExperimentDetailPage() {
                   )}
                 </CardContent>
               </Card>
-              
+
               <Card className="mt-6">
                 <CardHeader>
                   <CardTitle>Experiment Configuration</CardTitle>
@@ -533,7 +602,7 @@ export default function ExperimentDetailPage() {
                         </div>
                       </div>
                     </div>
-                    
+
                     <div>
                       <h3 className="text-sm font-medium text-gray-700 mb-2">Metrics Tracked</h3>
                       <div className="bg-gray-50 p-4 rounded-md">

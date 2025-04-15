@@ -4,8 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { createBrowserSupabaseClient } from '@/app/lib/db/supabase';
-import { 
-  getExperimentById, 
+import {
+  getExperimentById,
   getExperimentRuns,
   updateExperiment,
   Experiment,
@@ -14,20 +14,21 @@ import {
 import { getAgentById } from '@/app/lib/db/agentStorage';
 import { Button } from '@/app/components/common/Button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/app/components/common/Card';
+import MetricsChart from '@/app/components/evolution/MetricsChart';
 
 export default function ExperimentRunDetailPage() {
   const router = useRouter();
   const params = useParams();
   const experimentId = params.id as string;
   const runId = params.runId as string;
-  
+
   const [experiment, setExperiment] = useState<Experiment | null>(null);
   const [run, setRun] = useState<ExperimentRun | null>(null);
   const [agent, setAgent] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
-  
+
   // Metrics data (simulated for now)
   const [metrics, setMetrics] = useState<any[]>([]);
   const [chartData, setChartData] = useState<any>(null);
@@ -39,7 +40,7 @@ export default function ExperimentRunDetailPage() {
       const { data: { user } } = await supabase.auth.getUser();
       setUserId(user?.id || null);
     };
-    
+
     getUser();
   }, []);
 
@@ -48,35 +49,35 @@ export default function ExperimentRunDetailPage() {
     const loadData = async () => {
       setIsLoading(true);
       setError(null);
-      
+
       try {
         // Get experiment details
         const experimentData = await getExperimentById(experimentId);
-        
+
         if (!experimentData) {
           setError('Experiment not found');
           setIsLoading(false);
           return;
         }
-        
+
         setExperiment(experimentData);
-        
+
         // Get experiment runs
         const runsData = await getExperimentRuns(experimentId);
         const runData = runsData.find(r => r.id === runId);
-        
+
         if (!runData) {
           setError('Run not found');
           setIsLoading(false);
           return;
         }
-        
+
         setRun(runData);
-        
+
         // Get agent details
         const agentData = await getAgentById(runData.agent_id);
         setAgent(agentData);
-        
+
         // Generate simulated metrics data
         generateSimulatedMetrics(experimentData.configuration.metrics);
       } catch (err) {
@@ -86,7 +87,7 @@ export default function ExperimentRunDetailPage() {
         setIsLoading(false);
       }
     };
-    
+
     loadData();
   }, [experimentId, runId]);
 
@@ -95,16 +96,16 @@ export default function ExperimentRunDetailPage() {
     const simulatedMetrics = metricTypes.map(metricType => {
       // Generate a random value between 0 and 100
       const value = Math.round(Math.random() * 100);
-      
+
       return {
         type: metricType,
         value,
         timestamp: new Date().toISOString()
       };
     });
-    
+
     setMetrics(simulatedMetrics);
-    
+
     // Generate chart data
     const chartData = {
       labels: metricTypes.map(type => type.replace('_', ' ')),
@@ -118,7 +119,7 @@ export default function ExperimentRunDetailPage() {
         }
       ]
     };
-    
+
     setChartData(chartData);
   };
 
@@ -127,7 +128,7 @@ export default function ExperimentRunDetailPage() {
     if (type === 'response_time') {
       return `${value} ms`;
     }
-    
+
     return value.toFixed(2);
   };
 
@@ -210,26 +211,26 @@ export default function ExperimentRunDetailPage() {
                   <p className="text-xs text-gray-500">{agent.archetype}</p>
                 )}
               </div>
-              
+
               <div>
                 <h3 className="text-sm font-medium text-gray-700">Created</h3>
                 <p className="text-sm text-gray-900">{new Date(run.created_at).toLocaleString()}</p>
               </div>
-              
+
               {run.started_at && (
                 <div>
                   <h3 className="text-sm font-medium text-gray-700">Started</h3>
                   <p className="text-sm text-gray-900">{new Date(run.started_at).toLocaleString()}</p>
                 </div>
               )}
-              
+
               {run.completed_at && (
                 <div>
                   <h3 className="text-sm font-medium text-gray-700">Completed</h3>
                   <p className="text-sm text-gray-900">{new Date(run.completed_at).toLocaleString()}</p>
                 </div>
               )}
-              
+
               <div>
                 <h3 className="text-sm font-medium text-gray-700">Status</h3>
                 <p className={`text-sm font-medium ${getStatusColor(run.status)}`}>
@@ -239,7 +240,7 @@ export default function ExperimentRunDetailPage() {
             </CardContent>
           </Card>
         </div>
-        
+
         <div className="md:col-span-2">
           <Card>
             <CardHeader>
@@ -269,20 +270,48 @@ export default function ExperimentRunDetailPage() {
                       </div>
                     ))}
                   </div>
-                  
+
                   <div className="bg-gray-50 p-4 rounded-lg">
                     <h3 className="text-sm font-medium text-gray-700 mb-2">Performance Chart</h3>
-                    <div className="h-64 flex items-center justify-center">
-                      <p className="text-gray-500">
-                        Chart visualization would be displayed here.
-                      </p>
-                    </div>
+                    <MetricsChart
+                      type="bar"
+                      height={300}
+                      data={{
+                        labels: metrics.map(metric => metric.type.replace('_', ' ')),
+                        datasets: [
+                          {
+                            label: agent?.name || 'Agent Performance',
+                            data: metrics.map(metric => metric.value),
+                            backgroundColor: 'rgba(99, 102, 241, 0.5)',
+                            borderColor: 'rgb(99, 102, 241)',
+                            borderWidth: 1,
+                          },
+                        ],
+                      }}
+                      options={{
+                        scales: {
+                          y: {
+                            beginAtZero: true,
+                            title: {
+                              display: true,
+                              text: 'Value',
+                            },
+                          },
+                          x: {
+                            title: {
+                              display: true,
+                              text: 'Metrics',
+                            },
+                          },
+                        },
+                      }}
+                    />
                   </div>
                 </div>
               )}
             </CardContent>
           </Card>
-          
+
           <Card className="mt-6">
             <CardHeader>
               <CardTitle>Run Results</CardTitle>
