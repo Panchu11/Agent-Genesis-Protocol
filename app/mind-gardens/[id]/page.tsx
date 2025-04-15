@@ -4,9 +4,9 @@ import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { createBrowserSupabaseClient } from '@/app/lib/db/supabase';
-import { 
-  getKnowledgeBaseById, 
-  updateKnowledgeBase, 
+import {
+  getKnowledgeBaseById,
+  updateKnowledgeBase,
   deleteKnowledgeBase,
   getKnowledgeNodes,
   createKnowledgeNode,
@@ -22,13 +22,13 @@ export default function GardenDetailPage() {
   const router = useRouter();
   const params = useParams();
   const gardenId = params.id as string;
-  
+
   const [garden, setGarden] = useState<KnowledgeBase | null>(null);
   const [nodes, setNodes] = useState<KnowledgeNode[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
-  
+
   // UI state
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState('');
@@ -36,7 +36,7 @@ export default function GardenDetailPage() {
   const [isPublic, setIsPublic] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  
+
   // Node editing state
   const [isAddingNode, setIsAddingNode] = useState(false);
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
@@ -51,7 +51,7 @@ export default function GardenDetailPage() {
       const { data: { user } } = await supabase.auth.getUser();
       setUserId(user?.id || null);
     };
-    
+
     getUser();
   }, []);
 
@@ -60,21 +60,21 @@ export default function GardenDetailPage() {
     const loadGardenData = async () => {
       setIsLoading(true);
       setError(null);
-      
+
       try {
         const gardenData = await getKnowledgeBaseById(gardenId);
-        
+
         if (!gardenData) {
           setError('Knowledge garden not found');
           setIsLoading(false);
           return;
         }
-        
+
         setGarden(gardenData);
         setName(gardenData.name);
         setDescription(gardenData.description || '');
         setIsPublic(gardenData.is_public);
-        
+
         // Load nodes
         const nodesData = await getKnowledgeNodes(gardenId);
         setNodes(nodesData);
@@ -85,23 +85,23 @@ export default function GardenDetailPage() {
         setIsLoading(false);
       }
     };
-    
+
     loadGardenData();
   }, [gardenId]);
 
   // Handle garden update
   const handleUpdateGarden = async () => {
     if (!garden || !userId) return;
-    
+
     setIsSaving(true);
-    
+
     try {
       const updatedGarden = await updateKnowledgeBase(gardenId, {
         name,
         description,
         is_public: isPublic
       }, userId);
-      
+
       if (updatedGarden) {
         setGarden(updatedGarden);
         setIsEditing(false);
@@ -119,16 +119,16 @@ export default function GardenDetailPage() {
   // Handle garden deletion
   const handleDeleteGarden = async () => {
     if (!garden || !userId) return;
-    
+
     if (!confirm('Are you sure you want to delete this knowledge garden? This action cannot be undone.')) {
       return;
     }
-    
+
     setIsDeleting(true);
-    
+
     try {
       const success = await deleteKnowledgeBase(gardenId, userId);
-      
+
       if (success) {
         router.push('/mind-gardens');
       } else {
@@ -148,17 +148,17 @@ export default function GardenDetailPage() {
       setError('Node title is required');
       return;
     }
-    
+
     setIsSavingNode(true);
     setError(null);
-    
+
     try {
       const newNode = await createKnowledgeNode(
         gardenId,
         nodeTitle,
         nodeContent
       );
-      
+
       if (newNode) {
         setNodes([...nodes, newNode]);
         setIsAddingNode(false);
@@ -181,18 +181,18 @@ export default function GardenDetailPage() {
       setError('Node title is required');
       return;
     }
-    
+
     setIsSavingNode(true);
     setError(null);
-    
+
     try {
       const updatedNode = await updateKnowledgeNode(editingNodeId, {
         title: nodeTitle,
         content: nodeContent
       });
-      
+
       if (updatedNode) {
-        setNodes(nodes.map(node => 
+        setNodes(nodes.map(node =>
           node.id === editingNodeId ? updatedNode : node
         ));
         setEditingNodeId(null);
@@ -214,10 +214,10 @@ export default function GardenDetailPage() {
     if (!confirm('Are you sure you want to delete this node? This action cannot be undone.')) {
       return;
     }
-    
+
     try {
       const success = await deleteKnowledgeNode(nodeId);
-      
+
       if (success) {
         setNodes(nodes.filter(node => node.id !== nodeId));
       } else {
@@ -338,7 +338,7 @@ export default function GardenDetailPage() {
                 required
               />
             </div>
-            
+
             <div className="space-y-2">
               <label htmlFor="description" className="block text-sm font-medium text-gray-700">
                 Description
@@ -350,7 +350,7 @@ export default function GardenDetailPage() {
                 className="w-full rounded-md border border-gray-300 p-2 min-h-[100px]"
               />
             </div>
-            
+
             <div className="flex items-center space-x-2">
               <input
                 type="checkbox"
@@ -366,8 +366,8 @@ export default function GardenDetailPage() {
           </CardContent>
           <CardFooter className="flex justify-between">
             <div>
-              <Button 
-                variant="destructive" 
+              <Button
+                variant="destructive"
                 onClick={handleDeleteGarden}
                 disabled={isDeleting}
               >
@@ -375,8 +375,8 @@ export default function GardenDetailPage() {
               </Button>
             </div>
             <div className="flex space-x-2">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => {
                   setIsEditing(false);
                   setName(garden.name);
@@ -387,7 +387,7 @@ export default function GardenDetailPage() {
               >
                 Cancel
               </Button>
-              <Button 
+              <Button
                 onClick={handleUpdateGarden}
                 disabled={isSaving || !name.trim()}
               >
@@ -416,10 +416,17 @@ export default function GardenDetailPage() {
                   <h3 className="text-sm font-medium text-gray-700">Nodes</h3>
                   <p className="text-sm text-gray-900">{nodes.length}</p>
                 </div>
+                <div className="pt-2">
+                  <Link href={`/mind-gardens/${garden.id}/knowledge-graph`}>
+                    <Button variant="outline" className="w-full">
+                      View Knowledge Graph
+                    </Button>
+                  </Link>
+                </div>
               </CardContent>
               {isOwner && (
                 <CardFooter>
-                  <Button 
+                  <Button
                     onClick={() => {
                       setIsAddingNode(true);
                       setEditingNodeId(null);
@@ -434,7 +441,7 @@ export default function GardenDetailPage() {
               )}
             </Card>
           </div>
-          
+
           <div className="md:col-span-3">
             {isAddingNode || editingNodeId ? (
               <Card>
@@ -458,7 +465,7 @@ export default function GardenDetailPage() {
                       required
                     />
                   </div>
-                  
+
                   <div className="space-y-2">
                     <label htmlFor="nodeContent" className="block text-sm font-medium text-gray-700">
                       Content
@@ -473,14 +480,14 @@ export default function GardenDetailPage() {
                   </div>
                 </CardContent>
                 <CardFooter className="flex justify-end space-x-2">
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     onClick={cancelNodeEditing}
                     disabled={isSavingNode}
                   >
                     Cancel
                   </Button>
-                  <Button 
+                  <Button
                     onClick={editingNodeId ? handleUpdateNode : handleCreateNode}
                     disabled={isSavingNode || !nodeTitle.trim()}
                   >
@@ -498,7 +505,7 @@ export default function GardenDetailPage() {
                       {isOwner && ' Start adding nodes to grow your knowledge garden.'}
                     </p>
                     {isOwner && (
-                      <Button 
+                      <Button
                         onClick={() => {
                           setIsAddingNode(true);
                           setEditingNodeId(null);
