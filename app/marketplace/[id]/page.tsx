@@ -9,14 +9,15 @@ import { createBrowserSupabaseClient } from '@/app/lib/db/supabase';
 import { Button } from '@/app/components/common/Button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/app/components/common/Card';
 import { useNotification } from '@/app/context/NotificationContext';
-import { acquireMarketplaceAgent, getAgentReviews, getMarketplaceAgent, MarketplaceAgent, MarketplaceReview, submitAgentReview } from '@/app/lib/services/marketplace';
+import { acquireMarketplaceAgent, getAgentReviews, getMarketplaceAgent, MarketplaceAgent, MarketplaceReview } from '@/app/lib/services/marketplace';
+import EnhancedReviewForm from '@/app/components/marketplace/EnhancedReviewForm';
 
 export default function MarketplaceAgentDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { showNotification } = useNotification();
   const agentId = params.id as string;
-  
+
   // State for agent and reviews
   const [agent, setAgent] = useState<MarketplaceAgent | null>(null);
   const [reviews, setReviews] = useState<MarketplaceReview[]>([]);
@@ -24,37 +25,35 @@ export default function MarketplaceAgentDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
-  
-  // State for review form
-  const [reviewRating, setReviewRating] = useState(5);
-  const [reviewComment, setReviewComment] = useState('');
+
+  // State for reviews
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
-  
+
   // State for acquisition
   const [isAcquiring, setIsAcquiring] = useState(false);
-  
+
   // State for active tab
   const [activeTab, setActiveTab] = useState<'overview' | 'capabilities' | 'reviews'>('overview');
-  
+
   // Load agent and reviews
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
       setError(null);
-      
+
       try {
         // Check if user is authenticated
         const supabase = createBrowserSupabaseClient();
         const { data: { user } } = await supabase.auth.getUser();
-        
+
         if (!user) {
           // Redirect to login if not authenticated
           router.push(`/auth/login?redirectedFrom=/marketplace/${agentId}`);
           return;
         }
-        
+
         setUserId(user.id);
-        
+
         // Load agent
         const agentData = await getMarketplaceAgent(agentId);
         if (!agentData) {
@@ -62,7 +61,7 @@ export default function MarketplaceAgentDetailPage() {
           return;
         }
         setAgent(agentData);
-        
+
         // Load reviews
         const { reviews: reviewsData, total } = await getAgentReviews(agentId);
         setReviews(reviewsData);
@@ -74,85 +73,48 @@ export default function MarketplaceAgentDetailPage() {
         setIsLoading(false);
       }
     };
-    
+
     if (agentId) {
       loadData();
     }
   }, [agentId, router]);
-  
+
   // Handle tab change
   const handleTabChange = (tab: 'overview' | 'capabilities' | 'reviews') => {
     setActiveTab(tab);
   };
-  
-  // Handle review submission
-  const handleSubmitReview = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!reviewComment.trim()) {
-      showNotification({
-        id: 'review-error',
-        title: 'Review Error',
-        message: 'Please enter a comment for your review',
-        type: 'error'
-      });
-      return;
-    }
-    
-    setIsSubmittingReview(true);
-    
+
+  // Handle review submission completion
+  const handleReviewSubmitted = async () => {
     try {
-      const result = await submitAgentReview(agentId, reviewRating, reviewComment);
-      
-      if (result.success) {
-        showNotification({
-          id: 'review-success',
-          title: 'Review Submitted',
-          message: 'Your review has been submitted successfully',
-          type: 'success'
-        });
-        
-        // Reset form
-        setReviewComment('');
-        
-        // Reload reviews
-        const { reviews: reviewsData, total } = await getAgentReviews(agentId);
-        setReviews(reviewsData);
-        setTotalReviews(total);
-        
-        // Reload agent to update rating
-        const agentData = await getMarketplaceAgent(agentId);
-        if (agentData) {
-          setAgent(agentData);
-        }
-      } else {
-        showNotification({
-          id: 'review-error',
-          title: 'Review Error',
-          message: result.error || 'Failed to submit review',
-          type: 'error'
-        });
+      // Reload reviews
+      const { reviews: reviewsData, total } = await getAgentReviews(agentId);
+      setReviews(reviewsData);
+      setTotalReviews(total);
+
+      // Reload agent to update rating
+      const agentData = await getMarketplaceAgent(agentId);
+      if (agentData) {
+        setAgent(agentData);
       }
     } catch (err) {
-      console.error('Error submitting review:', err);
+      console.error('Error reloading data after review:', err);
       showNotification({
-        id: 'review-error',
-        title: 'Review Error',
-        message: 'An unexpected error occurred',
+        id: 'reload-error',
+        title: 'Error',
+        message: 'Failed to reload data after review submission',
         type: 'error'
       });
-    } finally {
-      setIsSubmittingReview(false);
     }
   };
-  
+
   // Handle agent acquisition
   const handleAcquireAgent = async () => {
     setIsAcquiring(true);
-    
+
     try {
       const result = await acquireMarketplaceAgent(agentId);
-      
+
       if (result.success) {
         showNotification({
           id: 'acquire-success',
@@ -160,7 +122,7 @@ export default function MarketplaceAgentDetailPage() {
           message: 'The agent has been added to your collection',
           type: 'success'
         });
-        
+
         // Redirect to the agent page
         if (result.agentId) {
           router.push(`/agent-forge/${result.agentId}`);
@@ -187,7 +149,7 @@ export default function MarketplaceAgentDetailPage() {
       setIsAcquiring(false);
     }
   };
-  
+
   // Format date
   const formatDate = (dateString: string) => {
     try {
@@ -196,13 +158,13 @@ export default function MarketplaceAgentDetailPage() {
       return 'Invalid date';
     }
   };
-  
+
   // Format price
   const formatPrice = (price: number) => {
     if (price === 0) return 'Free';
     return `$${price.toFixed(2)}`;
   };
-  
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-200px)]">
@@ -216,7 +178,7 @@ export default function MarketplaceAgentDetailPage() {
       </div>
     );
   }
-  
+
   if (error || !agent) {
     return (
       <div className="space-y-6">
@@ -226,14 +188,14 @@ export default function MarketplaceAgentDetailPage() {
             <Button variant="outline">Back to Marketplace</Button>
           </Link>
         </div>
-        
+
         <div className="bg-red-50 text-red-700 p-4 rounded-md">
           <p>{error || 'Agent not found'}</p>
         </div>
       </div>
     );
   }
-  
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -250,7 +212,7 @@ export default function MarketplaceAgentDetailPage() {
           </p>
         </div>
       </div>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="md:col-span-2">
           <Card>
@@ -299,7 +261,7 @@ export default function MarketplaceAgentDetailPage() {
                       {agent.description}
                     </p>
                   </div>
-                  
+
                   <div>
                     <h3 className="text-lg font-medium">Categories</h3>
                     <div className="mt-2 flex flex-wrap gap-2">
@@ -314,7 +276,7 @@ export default function MarketplaceAgentDetailPage() {
                       ))}
                     </div>
                   </div>
-                  
+
                   <div>
                     <h3 className="text-lg font-medium">Author</h3>
                     <div className="mt-2 flex items-center space-x-3">
@@ -342,7 +304,7 @@ export default function MarketplaceAgentDetailPage() {
                   </div>
                 </div>
               )}
-              
+
               {activeTab === 'capabilities' && (
                 <div className="space-y-6">
                   <div>
@@ -353,7 +315,7 @@ export default function MarketplaceAgentDetailPage() {
                       </pre>
                     </div>
                   </div>
-                  
+
                   <div>
                     <h3 className="text-lg font-medium">Capabilities</h3>
                     <div className="mt-2 p-4 bg-gray-50 rounded-md overflow-auto max-h-[300px]">
@@ -364,7 +326,7 @@ export default function MarketplaceAgentDetailPage() {
                   </div>
                 </div>
               )}
-              
+
               {activeTab === 'reviews' && (
                 <div className="space-y-6">
                   <div>
@@ -392,68 +354,12 @@ export default function MarketplaceAgentDetailPage() {
                       </p>
                     </div>
                   </div>
-                  
-                  <div className="border-t pt-6">
-                    <h3 className="text-lg font-medium mb-4">Write a Review</h3>
-                    <form onSubmit={handleSubmitReview}>
-                      <div className="space-y-4">
-                        <div>
-                          <label htmlFor="rating" className="block text-sm font-medium text-gray-700">
-                            Rating
-                          </label>
-                          <div className="mt-1 flex items-center">
-                            {[1, 2, 3, 4, 5].map((rating) => (
-                              <button
-                                key={rating}
-                                type="button"
-                                onClick={() => setReviewRating(rating)}
-                                className="focus:outline-none"
-                              >
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  className={`h-6 w-6 ${
-                                    rating <= reviewRating
-                                      ? 'text-yellow-400'
-                                      : 'text-gray-300'
-                                  }`}
-                                  viewBox="0 0 20 20"
-                                  fill="currentColor"
-                                >
-                                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                                </svg>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                        
-                        <div>
-                          <label htmlFor="comment" className="block text-sm font-medium text-gray-700">
-                            Comment
-                          </label>
-                          <div className="mt-1">
-                            <textarea
-                              id="comment"
-                              rows={4}
-                              value={reviewComment}
-                              onChange={(e) => setReviewComment(e.target.value)}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                              placeholder="Share your experience with this agent..."
-                            />
-                          </div>
-                        </div>
-                        
-                        <div>
-                          <Button
-                            type="submit"
-                            disabled={isSubmittingReview}
-                          >
-                            {isSubmittingReview ? 'Submitting...' : 'Submit Review'}
-                          </Button>
-                        </div>
-                      </div>
-                    </form>
-                  </div>
-                  
+
+                  <EnhancedReviewForm
+                    agentId={agentId}
+                    onReviewSubmitted={handleReviewSubmitted}
+                  />
+
                   <div className="border-t pt-6">
                     <h3 className="text-lg font-medium mb-4">Customer Reviews</h3>
                     {reviews.length === 0 ? (
@@ -516,7 +422,7 @@ export default function MarketplaceAgentDetailPage() {
             </CardContent>
           </Card>
         </div>
-        
+
         <div className="md:col-span-1">
           <Card>
             <CardHeader>
@@ -528,7 +434,7 @@ export default function MarketplaceAgentDetailPage() {
                   <div className="text-sm text-gray-500">Price</div>
                   <div className="text-2xl font-bold">{formatPrice(agent.price)}</div>
                 </div>
-                
+
                 <div>
                   <div className="text-sm text-gray-500">Rating</div>
                   <div className="flex items-center">
@@ -554,22 +460,22 @@ export default function MarketplaceAgentDetailPage() {
                     </span>
                   </div>
                 </div>
-                
+
                 <div>
                   <div className="text-sm text-gray-500">Downloads</div>
                   <div className="font-medium">{agent.downloads}</div>
                 </div>
-                
+
                 <div>
                   <div className="text-sm text-gray-500">Published</div>
                   <div className="font-medium">{formatDate(agent.published_at)}</div>
                 </div>
-                
+
                 <div>
                   <div className="text-sm text-gray-500">Version</div>
                   <div className="font-medium">{agent.version}</div>
                 </div>
-                
+
                 <div className="pt-4">
                   <Button
                     className="w-full"
@@ -578,17 +484,24 @@ export default function MarketplaceAgentDetailPage() {
                   >
                     {isAcquiring ? 'Processing...' : agent.price > 0 ? `Buy for ${formatPrice(agent.price)}` : 'Get for Free'}
                   </Button>
-                  
+
                   {agent.user_id === userId && (
-                    <p className="mt-2 text-sm text-gray-500 text-center">
-                      You are the author of this agent
-                    </p>
+                    <div className="mt-2 space-y-2">
+                      <p className="text-sm text-gray-500 text-center">
+                        You are the author of this agent
+                      </p>
+                      <Link href={`/marketplace/${agent.id}/analytics`}>
+                        <Button variant="outline" className="w-full">
+                          View Analytics
+                        </Button>
+                      </Link>
+                    </div>
                   )}
                 </div>
               </div>
             </CardContent>
           </Card>
-          
+
           <div className="mt-6">
             <Card>
               <CardHeader>

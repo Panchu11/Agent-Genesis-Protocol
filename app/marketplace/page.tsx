@@ -12,20 +12,20 @@ import { getFeaturedAgents, getMarketplaceCategories, getMarketplaceStats, Marke
 export default function MarketplacePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  
+
   // Get search parameters
   const query = searchParams.get('q') || '';
   const categoryParam = searchParams.get('category') || '';
   const sortParam = searchParams.get('sort') || 'popular';
   const pageParam = parseInt(searchParams.get('page') || '1');
-  
+
   // State for marketplace data
   const [featuredAgents, setFeaturedAgents] = useState<MarketplaceAgent[]>([]);
   const [categories, setCategories] = useState<MarketplaceCategory[]>([]);
   const [stats, setStats] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   // State for search
   const [searchQuery, setSearchQuery] = useState(query);
   const [selectedCategories, setSelectedCategories] = useState<string[]>(
@@ -38,42 +38,42 @@ export default function MarketplacePage() {
     sortParam as any || 'popular'
   );
   const [currentPage, setCurrentPage] = useState(pageParam);
-  
+
   // State for search results
   const [searchResults, setSearchResults] = useState<MarketplaceAgent[]>([]);
   const [totalResults, setTotalResults] = useState(0);
   const [isSearching, setIsSearching] = useState(false);
   const [searchPerformed, setSearchPerformed] = useState(false);
-  
+
   // Load initial data
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
       setError(null);
-      
+
       try {
         // Check if user is authenticated
         const supabase = createBrowserSupabaseClient();
         const { data: { user } } = await supabase.auth.getUser();
-        
+
         if (!user) {
           // Redirect to login if not authenticated
           router.push('/auth/login?redirectedFrom=/marketplace');
           return;
         }
-        
+
         // Load featured agents
         const featuredData = await getFeaturedAgents();
         setFeaturedAgents(featuredData);
-        
+
         // Load categories
         const categoriesData = await getMarketplaceCategories();
         setCategories(categoriesData);
-        
+
         // Load stats
         const statsData = await getMarketplaceStats();
         setStats(statsData);
-        
+
         // Perform search if query parameters are present
         if (query || categoryParam || sortParam !== 'popular' || pageParam > 1) {
           await performSearch();
@@ -85,14 +85,14 @@ export default function MarketplacePage() {
         setIsLoading(false);
       }
     };
-    
+
     loadData();
   }, [router, query, categoryParam, sortParam, pageParam]);
-  
+
   // Perform search
   const performSearch = async () => {
     setIsSearching(true);
-    
+
     try {
       const { agents, total } = await searchMarketplaceAgents(
         searchQuery,
@@ -106,7 +106,7 @@ export default function MarketplacePage() {
         currentPage,
         12
       );
-      
+
       setSearchResults(agents);
       setTotalResults(total);
       setSearchPerformed(true);
@@ -117,24 +117,24 @@ export default function MarketplacePage() {
       setIsSearching(false);
     }
   };
-  
+
   // Handle search form submission
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setCurrentPage(1);
     performSearch();
-    
+
     // Update URL parameters
     const params = new URLSearchParams();
     if (searchQuery) params.set('q', searchQuery);
     if (selectedCategories.length === 1) params.set('category', selectedCategories[0]);
     if (sortOrder !== 'popular') params.set('sort', sortOrder);
     if (currentPage > 1) params.set('page', currentPage.toString());
-    
+
     const newUrl = `/marketplace${params.toString() ? `?${params.toString()}` : ''}`;
     router.push(newUrl);
   };
-  
+
   // Handle category selection
   const handleCategorySelect = (categoryId: string) => {
     if (selectedCategories.includes(categoryId)) {
@@ -143,34 +143,34 @@ export default function MarketplacePage() {
       setSelectedCategories([...selectedCategories, categoryId]);
     }
   };
-  
+
   // Handle sort order change
   const handleSortChange = (sort: 'popular' | 'recent' | 'rating' | 'price_asc' | 'price_desc') => {
     setSortOrder(sort);
   };
-  
+
   // Handle pagination
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
     performSearch();
-    
+
     // Update URL parameters
     const params = new URLSearchParams(searchParams.toString());
     params.set('page', page.toString());
-    
+
     const newUrl = `/marketplace?${params.toString()}`;
     router.push(newUrl);
-    
+
     // Scroll to top
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
-  
+
   // Format price
   const formatPrice = (price: number) => {
     if (price === 0) return 'Free';
     return `$${price.toFixed(2)}`;
   };
-  
+
   // Render agent card
   const renderAgentCard = (agent: MarketplaceAgent) => (
     <Card key={agent.id} className="h-full flex flex-col">
@@ -194,7 +194,7 @@ export default function MarketplacePage() {
         <p className="text-sm text-gray-600 line-clamp-3">
           {agent.description}
         </p>
-        
+
         <div className="mt-4 flex flex-wrap gap-1">
           {agent.categories.slice(0, 3).map((category) => (
             <span
@@ -210,7 +210,7 @@ export default function MarketplacePage() {
             </span>
           )}
         </div>
-        
+
         <div className="mt-4 flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <div className="relative h-6 w-6 rounded-full overflow-hidden bg-gray-200">
@@ -241,7 +241,7 @@ export default function MarketplacePage() {
       </CardFooter>
     </Card>
   );
-  
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-200px)]">
@@ -255,7 +255,7 @@ export default function MarketplacePage() {
       </div>
     );
   }
-  
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -266,18 +266,23 @@ export default function MarketplacePage() {
           </p>
         </div>
         <div>
-          <Link href="/marketplace/publish">
-            <Button>Publish Your Agent</Button>
-          </Link>
+          <div className="flex space-x-2">
+            <Link href="/marketplace/analytics">
+              <Button variant="outline">Analytics</Button>
+            </Link>
+            <Link href="/marketplace/publish">
+              <Button>Publish Your Agent</Button>
+            </Link>
+          </div>
         </div>
       </div>
-      
+
       {error && (
         <div className="bg-red-50 text-red-700 p-4 rounded-md">
           <p>{error}</p>
         </div>
       )}
-      
+
       {/* Stats Cards */}
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -289,7 +294,7 @@ export default function MarketplacePage() {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardContent className="pt-6">
               <div className="text-center">
@@ -298,7 +303,7 @@ export default function MarketplacePage() {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardContent className="pt-6">
               <div className="text-center">
@@ -307,7 +312,7 @@ export default function MarketplacePage() {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardContent className="pt-6">
               <div className="text-center">
@@ -318,7 +323,7 @@ export default function MarketplacePage() {
           </Card>
         </div>
       )}
-      
+
       {/* Search and Filters */}
       <Card>
         <CardHeader>
@@ -340,7 +345,7 @@ export default function MarketplacePage() {
                 {isSearching ? 'Searching...' : 'Search'}
               </Button>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
                 <h3 className="text-sm font-medium text-gray-700 mb-2">Categories</h3>
@@ -361,7 +366,7 @@ export default function MarketplacePage() {
                   ))}
                 </div>
               </div>
-              
+
               <div>
                 <h3 className="text-sm font-medium text-gray-700 mb-2">Rating</h3>
                 <div className="space-y-2">
@@ -400,7 +405,7 @@ export default function MarketplacePage() {
                   </div>
                 </div>
               </div>
-              
+
               <div>
                 <h3 className="text-sm font-medium text-gray-700 mb-2">Price</h3>
                 <div className="space-y-2">
@@ -416,7 +421,7 @@ export default function MarketplacePage() {
                       Free agents only
                     </label>
                   </div>
-                  
+
                   <div>
                     <label htmlFor="max-price" className="block text-sm text-gray-700">
                       Maximum price
@@ -438,7 +443,7 @@ export default function MarketplacePage() {
                 </div>
               </div>
             </div>
-            
+
             <div className="flex justify-between items-center pt-4 border-t">
               <div className="text-sm text-gray-700">
                 Sort by:
@@ -466,12 +471,12 @@ export default function MarketplacePage() {
           </form>
         </CardContent>
       </Card>
-      
+
       {/* Search Results */}
       {searchPerformed && (
         <div>
           <h2 className="text-2xl font-bold mb-4">Search Results</h2>
-          
+
           {searchResults.length === 0 ? (
             <Card>
               <CardContent className="py-8">
@@ -486,11 +491,11 @@ export default function MarketplacePage() {
               <p className="text-gray-600 mb-4">
                 Found {totalResults} agent{totalResults !== 1 ? 's' : ''}
               </p>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {searchResults.map(renderAgentCard)}
               </div>
-              
+
               {/* Pagination */}
               {totalResults > 12 && (
                 <div className="mt-8 flex justify-center">
@@ -502,7 +507,7 @@ export default function MarketplacePage() {
                     >
                       Previous
                     </Button>
-                    
+
                     {Array.from({ length: Math.ceil(totalResults / 12) }).map((_, i) => {
                       const page = i + 1;
                       // Show first, last, current, and pages around current
@@ -532,7 +537,7 @@ export default function MarketplacePage() {
                       }
                       return null;
                     })}
-                    
+
                     <Button
                       variant="outline"
                       disabled={currentPage === Math.ceil(totalResults / 12)}
@@ -547,7 +552,7 @@ export default function MarketplacePage() {
           )}
         </div>
       )}
-      
+
       {/* Featured Agents */}
       {!searchPerformed && featuredAgents.length > 0 && (
         <div>
@@ -557,7 +562,7 @@ export default function MarketplacePage() {
           </div>
         </div>
       )}
-      
+
       {/* Categories */}
       {!searchPerformed && categories.length > 0 && (
         <div>
