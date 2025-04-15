@@ -2,99 +2,129 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { createBrowserSupabaseClient } from '@/app/lib/db/supabase';
 import { Button } from '@/app/components/common/Button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/app/components/common/Card';
-
-interface Profile {
-  id: string;
-  full_name: string;
-  email: string;
-  avatar_url: string | null;
-  updated_at: string;
-}
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/common/Tabs';
+import { useNotification } from '@/app/context/NotificationContext';
+import ProfileEditor from '@/app/components/user/ProfileEditor';
+import { getUserProfile, getUserActivity, getUserStats, createUserProfile, UserProfile } from '@/app/lib/services/userProfile';
 
 export default function ProfilePage() {
   const router = useRouter();
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isEditing, setIsEditing] = useState(false);
-  const [fullName, setFullName] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
+  const { showNotification } = useNotification();
 
+  // State for user data
+  const [user, setUser] = useState<any | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // State for user activity and stats
+  const [activities, setActivities] = useState<any[]>([]);
+  const [stats, setStats] = useState<Record<string, any> | null>(null);
+  const [isLoadingActivity, setIsLoadingActivity] = useState(false);
+
+  // State for UI
+  const [activeTab, setActiveTab] = useState<'profile' | 'activity' | 'stats'>('profile');
+
+  // Load user data
   useEffect(() => {
-    const fetchProfile = async () => {
+    const loadUserData = async () => {
+      setIsLoading(true);
+      setError(null);
+
       try {
         const supabase = createBrowserSupabaseClient();
-        
-        // Get the current user
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        if (!user) {
-          router.push('/auth/login');
+
+        // Get current user
+        const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser();
+
+        if (userError || !currentUser) {
+          console.error('Error fetching user:', userError);
+          router.push('/auth/login?redirectedFrom=/profile');
           return;
         }
-        
-        // Get the user's profile
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single();
-        
-        if (error) {
-          console.error('Error fetching profile:', error);
-          setError('Failed to load profile');
+
+        setUser(currentUser);
+
+        // Get user profile
+        const userProfile = await getUserProfile(currentUser.id);
+
+        if (!userProfile) {
+          // Create a new profile if it doesn't exist
+          const newProfile = await createUserProfile(currentUser.id, {
+            full_name: currentUser.user_metadata?.full_name || 'User',
+            email: currentUser.email,
+          });
+
+          setProfile(newProfile);
         } else {
-          setProfile(data);
-          setFullName(data.full_name || '');
+          setProfile(userProfile);
         }
+
+        // Load user activity
+        await loadUserActivity(currentUser.id);
+
+        // Load user stats
+        await loadUserStats(currentUser.id);
       } catch (err) {
-        console.error('Error fetching profile:', err);
-        setError('An unexpected error occurred');
+        console.error('Error loading user data:', err);
+        setError('Failed to load user data');
       } finally {
         setIsLoading(false);
       }
     };
-    
-    fetchProfile();
+
+    loadUserData();
   }, [router]);
 
-  const handleUpdateProfile = async () => {
-    if (!profile) return;
-    
-    setIsSaving(true);
-    setError(null);
-    
+  // Load user activity
+  const loadUserActivity = async (userId: string) => {
+    setIsLoadingActivity(true);
+
     try {
-      const supabase = createBrowserSupabaseClient();
-      
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          full_name: fullName,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', profile.id);
-      
-      if (error) {
-        console.error('Error updating profile:', error);
-        setError('Failed to update profile');
-      } else {
-        setProfile({
-          ...profile,
-          full_name: fullName,
-          updated_at: new Date().toISOString(),
-        });
-        setIsEditing(false);
-      }
+      const userActivities = await getUserActivity(userId, 10);
+      setActivities(userActivities);
     } catch (err) {
-      console.error('Error updating profile:', err);
-      setError('An unexpected error occurred');
+      console.error('Error loading user activity:', err);
     } finally {
-      setIsSaving(false);
+      setIsLoadingActivity(false);
     }
+  };
+
+  // Load user stats
+  const loadUserStats = async (userId: string) => {
+    try {
+      const userStats = await getUserStats(userId);
+      setStats(userStats);
+    } catch (err) {
+      console.error('Error loading user stats:', err);
+    }
+  };
+
+  // Handle profile update
+  const handleProfileUpdated = (updatedProfile: UserProfile) => {
+    setProfile(updatedProfile);
+  };
+
+  // Format date
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleString();
+    } catch (error) {
+      return 'Invalid date';
+    }
+  };
+
+  // Format activity type
+  const formatActivityType = (type: string) => {
+    return type
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
   };
 
   if (isLoading) {
@@ -111,149 +141,186 @@ export default function ProfilePage() {
     );
   }
 
-  if (!profile) {
+  if (error) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)]">
-        <div className="bg-red-50 text-red-700 p-4 rounded-md mb-4">
-          <p>{error || 'Profile not found'}</p>
-        </div>
-        <Button onClick={() => router.push('/')}>Go to Home</Button>
+      <div className="bg-red-50 text-red-700 p-4 rounded-md">
+        <p>{error}</p>
+      </div>
+    );
+  }
+
+  if (!user || !profile) {
+    return (
+      <div className="bg-yellow-50 text-yellow-700 p-4 rounded-md">
+        <p>User profile not found</p>
       </div>
     );
   }
 
   return (
-    <div className="max-w-3xl mx-auto">
-      <h1 className="text-3xl font-bold tracking-tight mb-6">Your Profile</h1>
-      
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-1">
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold tracking-tight">Your Profile</h1>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)}>
+        <TabsList className="w-full">
+          <TabsTrigger value="profile" className="flex-1">Profile</TabsTrigger>
+          <TabsTrigger value="activity" className="flex-1">Activity</TabsTrigger>
+          <TabsTrigger value="stats" className="flex-1">Stats</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="profile" className="mt-4">
+          <ProfileEditor
+            profile={profile}
+            onProfileUpdated={handleProfileUpdated}
+          />
+        </TabsContent>
+
+        <TabsContent value="activity" className="mt-4">
           <Card>
             <CardHeader>
-              <CardTitle>Profile Picture</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col items-center">
-              <div className="w-32 h-32 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-xl font-semibold">
-                {profile.full_name ? profile.full_name.charAt(0).toUpperCase() : 'U'}
-              </div>
-              <Button variant="outline" className="mt-4" disabled>
-                Change Picture
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-        
-        <div className="md:col-span-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>Personal Information</CardTitle>
+              <CardTitle>Recent Activity</CardTitle>
               <CardDescription>
-                Update your personal details
+                Your recent actions and interactions
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {error && (
-                <div className="bg-red-50 text-red-700 p-3 rounded-md mb-4 text-sm">
-                  {error}
+              {isLoadingActivity ? (
+                <div className="flex justify-center items-center py-8">
+                  <div className="flex items-center space-x-2">
+                    <svg className="animate-spin h-5 w-5 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <p>Loading activity...</p>
+                  </div>
                 </div>
-              )}
-              
-              {isEditing ? (
-                <div className="space-y-4">
-                  <div>
-                    <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-1">
-                      Full Name
-                    </label>
-                    <input
-                      id="fullName"
-                      type="text"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      className="w-full rounded-md border border-gray-300 p-2"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                      Email
-                    </label>
-                    <input
-                      id="email"
-                      type="email"
-                      value={profile.email}
-                      disabled
-                      className="w-full rounded-md border border-gray-300 p-2 bg-gray-50"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
-                  </div>
+              ) : activities.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-500">No recent activity</p>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-700 mb-1">Full Name</h3>
-                    <p>{profile.full_name || 'Not set'}</p>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-700 mb-1">Email</h3>
-                    <p>{profile.email}</p>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-700 mb-1">Last Updated</h3>
-                    <p>{new Date(profile.updated_at).toLocaleString()}</p>
-                  </div>
+                  {activities.map((activity) => (
+                    <div
+                      key={activity.id}
+                      className="border-b border-gray-200 pb-4 last:border-b-0 last:pb-0"
+                    >
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-medium">
+                            {formatActivityType(activity.activity_type)}
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            {formatDate(activity.created_at)}
+                          </p>
+                        </div>
+                        {activity.details && Object.keys(activity.details).length > 0 && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              // Show activity details
+                              showNotification({
+                                id: 'activity-details',
+                                title: formatActivityType(activity.activity_type),
+                                message: JSON.stringify(activity.details, null, 2),
+                                type: 'info',
+                              });
+                            }}
+                          >
+                            Details
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
-            </CardContent>
-            <CardFooter className="flex justify-end space-x-2">
-              {isEditing ? (
-                <>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => {
-                      setIsEditing(false);
-                      setFullName(profile.full_name || '');
-                    }}
-                    disabled={isSaving}
-                  >
-                    Cancel
-                  </Button>
-                  <Button 
-                    onClick={handleUpdateProfile}
-                    disabled={isSaving}
-                  >
-                    {isSaving ? 'Saving...' : 'Save Changes'}
-                  </Button>
-                </>
-              ) : (
-                <Button onClick={() => setIsEditing(true)}>
-                  Edit Profile
-                </Button>
-              )}
-            </CardFooter>
-          </Card>
-          
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle>Account Settings</CardTitle>
-              <CardDescription>
-                Manage your account preferences
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-sm font-medium text-gray-700 mb-1">Password</h3>
-                  <p className="text-gray-500">••••••••</p>
-                </div>
-              </div>
             </CardContent>
             <CardFooter>
-              <Button variant="outline" onClick={() => router.push('/auth/reset-password')}>
-                Change Password
+              <Button
+                variant="outline"
+                onClick={() => loadUserActivity(user.id)}
+                disabled={isLoadingActivity}
+              >
+                {isLoadingActivity ? 'Refreshing...' : 'Refresh Activity'}
               </Button>
             </CardFooter>
           </Card>
-        </div>
-      </div>
+        </TabsContent>
+
+        <TabsContent value="stats" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Your Stats</CardTitle>
+              <CardDescription>
+                Overview of your activity and contributions
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {!stats ? (
+                <div className="flex justify-center items-center py-8">
+                  <div className="flex items-center space-x-2">
+                    <svg className="animate-spin h-5 w-5 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <p>Loading stats...</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div className="bg-gray-50 p-4 rounded-md">
+                      <h3 className="text-lg font-medium">Agents</h3>
+                      <div className="mt-2 flex items-center">
+                        <span className="text-3xl font-bold">{stats.agents}</span>
+                        <span className="ml-2 text-sm text-gray-500">created</span>
+                      </div>
+                    </div>
+
+                    <div className="bg-gray-50 p-4 rounded-md">
+                      <h3 className="text-lg font-medium">Knowledge Bases</h3>
+                      <div className="mt-2 flex items-center">
+                        <span className="text-3xl font-bold">{stats.knowledgeBases}</span>
+                        <span className="ml-2 text-sm text-gray-500">created</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="bg-gray-50 p-4 rounded-md">
+                      <h3 className="text-lg font-medium">Deployments</h3>
+                      <div className="mt-2 flex items-center">
+                        <span className="text-3xl font-bold">{stats.deployments}</span>
+                        <span className="ml-2 text-sm text-gray-500">active</span>
+                      </div>
+                    </div>
+
+                    <div className="bg-gray-50 p-4 rounded-md">
+                      <h3 className="text-lg font-medium">Marketplace</h3>
+                      <div className="mt-2 flex items-center">
+                        <span className="text-3xl font-bold">{stats.marketplaceAgents}</span>
+                        <span className="ml-2 text-sm text-gray-500">published</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+            <CardFooter>
+              <Button
+                variant="outline"
+                onClick={() => loadUserStats(user.id)}
+              >
+                Refresh Stats
+              </Button>
+            </CardFooter>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
