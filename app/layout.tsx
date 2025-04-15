@@ -3,12 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Layout } from "./components/layout/Layout";
 import { NotificationProvider } from "./context/NotificationContext";
-import dynamic from 'next/dynamic';
-
-// Dynamically import the FloatingChat component to avoid SSR issues
-const FloatingChat = dynamic(() => import('./components/chat/FloatingChat'), {
-  ssr: false,
-});
+import ClientFloatingChat from "./components/chat/ClientFloatingChat";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -37,7 +32,7 @@ export default function RootLayout({
       >
         <NotificationProvider>
           <Layout>{children}</Layout>
-          <FloatingChat />
+          <ClientFloatingChat />
         </NotificationProvider>
       </body>
     </html>

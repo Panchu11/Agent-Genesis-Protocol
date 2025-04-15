@@ -22,10 +22,6 @@ import {
 } from 'chart.js';
 import { Radar, Bar, Line } from 'react-chartjs-2';
 import 'chartjs-adapter-date-fns';
-import dynamic from 'next/dynamic';
-
-// Dynamically import ForceGraph to avoid SSR issues
-const ForceGraph2D = dynamic(() => import('react-force-graph-2d'), { ssr: false });
 
 // Register ChartJS components
 ChartJS.register(

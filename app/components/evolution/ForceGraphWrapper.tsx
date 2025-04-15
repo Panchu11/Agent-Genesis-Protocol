@@ -1,10 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import dynamic from 'next/dynamic';
-
-// Dynamically import ForceGraph to avoid SSR issues
-const ForceGraph2D = dynamic(() => import('react-force-graph-2d'), { ssr: false });
+import ForceGraph2D from 'react-force-graph-2d';
 
 interface ForceGraphWrapperProps {
   data: {
@@ -40,12 +37,12 @@ export default function ForceGraphWrapper({
 
   if (!isMounted) {
     return (
-      <div 
-        style={{ 
-          width: width, 
-          height: height, 
-          display: 'flex', 
-          alignItems: 'center', 
+      <div
+        style={{
+          width: width,
+          height: height,
+          display: 'flex',
+          alignItems: 'center',
           justifyContent: 'center',
           backgroundColor: '#f9fafb',
           borderRadius: '0.375rem'
