@@ -7,11 +7,15 @@
   "outputDirectory": ".next",
   "regions": ["iad1"],
   "env": {
-    "NEXT_PUBLIC_SUPABASE_URL": "@next_public_supabase_url",
-    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@next_public_supabase_anon_key",
-    "NEXT_PUBLIC_FIREWORKS_API_KEY": "@next_public_fireworks_api_key",
-    "NEXT_PUBLIC_FIREWORKS_MODEL_ID": "@next_public_fireworks_model_id",
-    "SUPABASE_SERVICE_ROLE_KEY": "@supabase_service_role_key"
+    "NEXT_PUBLIC_SUPABASE_URL": "https://bxiwqtevhedtanpmhvsl.supabase.co",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ4aXdxdGV2aGVkdGFucG1odnNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ3MDg2NTAsImV4cCI6MjA2MDI4NDY1MH0.C-xJoD4Tb41begYF7j6_2eKhcMuBSsVmMfwIDkPKwjQ",
+    "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ4aXdxdGV2aGVkdGFucG1odnNsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NDcwODY1MCwiZXhwIjoyMDYwMjg0NjUwfQ.mOIiEU0-DezfuaPpxPAUiRSyA43m8i69XaSoTvkKfbk",
+    "NEXT_PUBLIC_FIREWORKS_API_KEY": "fw_3ZN3Es5mT79GXi3iX5RPpfwL",
+    "NEXT_PUBLIC_FIREWORKS_MODEL_ID": "accounts/sentientfoundation/models/dobby-unhinged-llama-3-3-70b-new",
+    "NEXT_PUBLIC_JINA_API_KEY": "jina_e80c8f082ef245c2b93a1d5cef0856e9vk3grsgsd03lyeKScnS5EYihPVyX",
+    "NEXT_PUBLIC_SERPER_API_KEY": "83da55c79762a32033c05585ce1f50dda166c37e",
+    "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_aHVtb3JvdXMtc2hhcmstNzguY2xlcmsuYWNjb3VudHMuZGV2JA",
+    "CLERK_SECRET_KEY": "sk_test_xS3wWJpEkkNj4EkBllSLj60K2143NMRv0bubHqaC7f"
   },
   "headers": [
     {
