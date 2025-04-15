@@ -12,6 +12,7 @@ const navigation = [
   { name: 'Agent Forge', href: '/agent-forge' },
   { name: 'Marketplace', href: '/marketplace' },
   { name: 'Evolution Lab', href: '/evolution-lab' },
+  { name: 'App Builder', href: '/app-builder' },
   { name: 'AGP Feed', href: '/feed' },
   { name: 'Mind Gardens', href: '/mind-gardens' },
   { name: 'Chat', href: '/chat' },
